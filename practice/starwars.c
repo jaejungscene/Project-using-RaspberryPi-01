@@ -102,62 +102,62 @@ void play()
   beep( fH, 125);
   beep( fHS, 250);
  
-  delay(250);
+  // delay(250);
  
-  beep( aS, 250);
-  beep( dHS, 500);
-  beep( dH, 250);
-  beep( cHS, 250);
-  beep( cH, 125);
+  // beep( aS, 250);
+  // beep( dHS, 500);
+  // beep( dH, 250);
+  // beep( cHS, 250);
+  // beep( cH, 125);
  
-  beep( b, 125);
-  beep( cH, 250);
+  // beep( b, 125);
+  // beep( cH, 250);
  
-  delay(250);
+  // delay(250);
  
-  beep( f, 125);
-  beep( gS, 500);
-  beep( f, 375);
-  beep( a, 125);
-  beep( cH, 500);
+  // beep( f, 125);
+  // beep( gS, 500);
+  // beep( f, 375);
+  // beep( a, 125);
+  // beep( cH, 500);
  
-  beep( a, 375);
-  beep( cH, 125);
-  beep( eH, 1000);
-  beep( aH, 500);
-  beep( a, 350);
+  // beep( a, 375);
+  // beep( cH, 125);
+  // beep( eH, 1000);
+  // beep( aH, 500);
+  // beep( a, 350);
  
-  beep( a, 150);
-  beep( aH, 500);
-  beep( gHS, 250);
-  beep( gH, 250);
-  beep( fHS, 125);
+  // beep( a, 150);
+  // beep( aH, 500);
+  // beep( gHS, 250);
+  // beep( gH, 250);
+  // beep( fHS, 125);
  
-  beep( fH, 125);
-  beep( fHS, 250);
+  // beep( fH, 125);
+  // beep( fHS, 250);
  
-  delay(250);
+  // delay(250);
  
-  beep( aS, 250);
-  beep( dHS, 500);
-  beep( dH, 250);
-  beep( cHS, 250);
-  beep( cH, 125);
+  // beep( aS, 250);
+  // beep( dHS, 500);
+  // beep( dH, 250);
+  // beep( cHS, 250);
+  // beep( cH, 125);
  
-  beep( b, 125);
-  beep( cH, 250);
+  // beep( b, 125);
+  // beep( cH, 250);
  
-  delay(250);
+  // delay(250);
  
-  beep( f, 250);
-  beep( gS, 500);
-  beep( f, 375);
-  beep( cH, 125);
-  beep( a, 500);
+  // beep( f, 250);
+  // beep( gS, 500);
+  // beep( f, 375);
+  // beep( cH, 125);
+  // beep( a, 500);
  
-  beep( f, 375);
-  beep( c, 125);
-  beep( a, 1000);
+  // beep( f, 375);
+  // beep( c, 125);
+  // beep( a, 1000);
 }
  
 int main(void)

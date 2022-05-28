@@ -313,7 +313,7 @@ int readadc (int fd, uint8_t channel) {
 #define TIME 1500
 
 static uint8_t MODE0 = SPI_MODE_0;
-// static uint8_t MODE1 = SPI_MODE_1;
+static uint8_t MODE1 = SPI_MODE_1;
 static const char *DEVICE = "/dev/spidev0.0";
 int fd; // file descriptor for DEVICE
 
@@ -396,9 +396,9 @@ int main()
 
   pthread_t threads[2];
   pthread_create(&threads[0], NULL, thread0, NULL);
-  // pthread_create(&threads[1], NULL, thread1, NULL);
+  pthread_create(&threads[1], NULL, thread1, NULL);
   pthread_join(threads[0], NULL);
-  // pthread_join(threads[1], NULL);
+  pthread_join(threads[1], NULL);
 
   printf("================ !! program finish !! ================\n");
   return 0;

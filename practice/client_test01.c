@@ -35,12 +35,12 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP
+    sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
     if(sock == -1) error_handling("socket() error");
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET; //IPv4
-    serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
-    serv_addr.sin_port = htons(atoi(argv[2])); //argv[2] = port number
+    serv_addr.sin_addr.s_addr = inet_addr(argv[1]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
+    serv_addr.sin_port = htons(atoi(argv[2])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
 
     if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
         error_handling("connect() error");

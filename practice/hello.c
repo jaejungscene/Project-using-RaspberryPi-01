@@ -1,0 +1,8 @@
+#include <stdio.h>
+
+int main(){
+  sleep(5);
+
+  printf("hello world\n");
+  return 0;
+}

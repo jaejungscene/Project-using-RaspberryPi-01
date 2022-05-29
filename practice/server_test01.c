@@ -7,6 +7,7 @@
 #include <string.h> 
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <pthread.h>
 
 #define IN 0 
 #define OUT 1 
@@ -22,6 +23,10 @@ void error_handling(char *message){
   exit(1);
 }
 
+void *receive(){
+  pthread_exit(NULL);
+}
+
 /* ./server <server Port> */
 #define MAX_MSG 30
 int main(int argc, char *argv[])
@@ -33,10 +38,8 @@ int main(int argc, char *argv[])
 
   if(argc!=1){
     printf("<port> : %s\n",argv[1]);
-    exit(1);
   }
 
-  printf("01\n");
 
   serv_sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP
   if(serv_sock == -1) error_handling("socket() error");
@@ -45,7 +48,6 @@ int main(int argc, char *argv[])
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   serv_addr.sin_port = htons(atoi(argv[1]));
 
-  printf("02\n");
 
   /**
    * bind(2)
@@ -59,7 +61,6 @@ int main(int argc, char *argv[])
   if(bind(serv_sock, (struct sockaddr*) &serv_addr, sizeof(serv_addr))==-1)
     error_handling("bind() error");
 
-  printf("03\n");
 
   /**
    * https://www.joinc.co.kr/w/man/2/listen
@@ -72,8 +73,8 @@ int main(int argc, char *argv[])
    */
   if(listen(serv_sock,5) == -1) error_handling("listen() error");
 
-  printf("04\n");
 
+  while(1){
   /**
    * accept(2)
    * int accept(int s, struct sockaddr *addr, socklen_t *addrlen);
@@ -83,20 +84,46 @@ int main(int argc, char *argv[])
    */
   if(clnt_sock<0){
     clnt_addr_size = sizeof(clnt_addr);
+    printf("waiting...\n");
+    if(clnt_sock == -2){
+      printf(">> ");
+      fgets(msg, sizeof(msg), stdin);
+      msg[strlen(msg)-1] = '\0';
+      if(!strcmp(msg, "exit")){
+        break;
+      }
+    }
     clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
     if(clnt_sock == -1)
       error_handling("accept() error");
   }
 
-  printf("05\n");
+  printf("=== connectiond establish with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
 
-  while(1){
-    printf(">> ");
-    fgets(msg, sizeof(msg), stdin);
-    write(clnt_sock, msg, sizeof(msg));
+  // pthread_t receiver, sender;
+
+  int str_len = -1;
+    while(1){
+      printf(">> ");
+      fgets(msg, sizeof(msg), stdin);
+      write(clnt_sock, msg, sizeof(msg));
+      printf("wait read...\n");
+      str_len = read(clnt_sock, msg, sizeof(msg));
+      if(str_len == -1){
+        error_handling("read() error");
+        continue;
+      }
+      else if(!strcmp(msg, "exit")){
+        printf("** disconnect **\n");
+        break;
+      }
+      printf("from client : %s\n", msg);
+    }
+    close(clnt_sock);
+    clnt_sock = -2;
   }
 
-  close(clnt_sock);
+  printf("== finish ==\n");
   close(serv_sock);
 
   return(0);

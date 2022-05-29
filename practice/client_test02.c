@@ -22,6 +22,19 @@ void error_handling(char *message){
   exit(1);
 }
 
+void clientConnecting(int *sock, struct sockaddr_in *dest_addr, char *args[]){
+   *sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   if(*sock == -1) error_handling("socket() error");
+   memset(dest_addr, 0, sizeof(*dest_addr));
+   dest_addr->sin_family = AF_INET; //IPv4
+   dest_addr->sin_addr.s_addr = inet_addr(args[0]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
+   dest_addr->sin_port = htons(atoi(args[1])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
+
+   if(connect(*sock, (struct sockaddr*)dest_addr, sizeof(*dest_addr)) == -1)
+      error_handling("connect() error");
+   printf("** complete connecting with %s **\n", args[0]);
+}
+
 /* ./client <server IP> <server Port> */
 #define MAX_MSG 30
 int main(int argc, char *argv[]) {
@@ -34,17 +47,7 @@ int main(int argc, char *argv[]) {
         printf("<IP> : %s, <port> : %s\n", argv[1], argv[2]);
     }
 
-    sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
-    if(sock == -1) error_handling("socket() error");
-    memset(&serv_addr, 0, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET; //IPv4
-    serv_addr.sin_addr.s_addr = inet_addr(argv[1]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
-    serv_addr.sin_port = htons(atoi(argv[2])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
-
-    if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
-        error_handling("connect() error");
-    }
-    printf("** complete connecting **\n");
+    clientConnecting(&sock, &serv_addr, &argv[1]);
 
     while(1){
         printf("wait read...\n");

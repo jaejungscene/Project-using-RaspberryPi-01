@@ -1,5 +1,5 @@
-#include "spiRW.h"
-#include "gpioRW.h"
+#include "header/spiRW.h"
+#include "header/gpioRW.h"
 #include "header/pwmRW.h"
 
 #define IN 0
@@ -37,7 +37,7 @@ int main()
   }
 
 #define PWM0 0
-#define CHANNEL 3
+#define CHANNEL 2
 // 가장 안정  2, 4
 // 약간 안정  3
 // 약간 불안정 0

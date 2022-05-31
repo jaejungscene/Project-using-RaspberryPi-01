@@ -270,7 +270,7 @@ static int GPIOWrite(int pin, int value)
 #define PERIOD 20000000
 #define MAX_VALUE 900.0 // 실험 후 나온 조도센서의 최대값
 #define MAX_MSG 30
-#define WAIT_TIME 900000
+#define WAIT_TIME 100000
 int sock;
 struct sockaddr_in serv_addr;
 char msg[MAX_MSG];

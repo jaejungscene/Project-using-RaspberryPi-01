@@ -37,7 +37,7 @@ int main()
   }
 
 #define PWM0 0
-#define CHANNEL 2
+#define CHANNEL 3
 // 가장 안정  2, 4
 // 약간 안정  3
 // 약간 불안정 0

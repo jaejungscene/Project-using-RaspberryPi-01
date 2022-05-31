@@ -123,7 +123,6 @@ int main(int argc, char *argv[])
   }
 
 
-
   int light;
   while(1){
     if(clnt_sock<0){

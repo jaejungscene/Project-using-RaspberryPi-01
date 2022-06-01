@@ -17,7 +17,7 @@
 
 int main(int argc, char *argv[])
 {
-  int repeat = 100;
+  int repeat = 50;
   int value;
   int prev = 1;
   if (-1 == GPIOExport(PIN21) || -1 == GPIOExport(PIN20) || -1 == GPIOExport(LED))

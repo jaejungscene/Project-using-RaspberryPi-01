@@ -12,7 +12,7 @@ static int GPIOExport(int pin)
 
   fd = open("/sys/class/gpio/export", O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr, "Failed to open export for writing!\n");
+    fprintf(stderr, "Failed to open export for writing at %d pin!\n", pin);
     return(-1);
   }
 
@@ -36,10 +36,10 @@ static int GPIODirection(int pin, int dir) {
 
   fd = open(path, O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr,"Failed to open gpio direction for writing!\n");
+    fprintf(stderr,"Failed to open gpio direction for writing at %d pin!\n", pin);
   }
   if (-1 == write(fd, &s_directions_str[in == dir ? 0 : 3], in == dir ? 2 : 3)) {
-    fprintf(stderr,"Failed to set direction!\n");
+    fprintf(stderr,"Failed to set direction at %d pin!\n", pin);
     close(fd);
     return(-1);
   }
@@ -58,7 +58,7 @@ static int GPIOUnexport(int pin)
 
   fd=open("/sys/class/gpio/unexport", O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr, "Failed to open unexport for writing!\n");
+    fprintf(stderr, "Failed to open unexport for writing at %d pin!\n", pin);
     return(-1);
   }
   bytes_written = snprintf(buffer, Buffer_Max, "%d", pin);
@@ -80,12 +80,12 @@ static int GPIORead(int pin)
   snprintf(path, Value_Max, "/sys/class/gpio/gpio%d/value", pin);
   fd = open (path, O_RDONLY);
   if (-1 == fd) {
-    fprintf(stderr, "Failed to open gpio value for reading!\n");
+    fprintf(stderr, "Failed to open gpio value for reading at %d pin!\n", pin);
     return(-1);
   }
 
   if (-1 == read(fd, value_str, sizeof(value_str))) {
-    fprintf(stderr, "Failed to read value!\n");
+    fprintf(stderr, "Failed to read value at %d pin!\n", pin);
     close(fd);
     return(-1);
   }
@@ -106,11 +106,11 @@ static int GPIOWrite(int pin, int value)
   snprintf(path, Value_Max,"/sys/class/gpio/gpio%d/value",pin);
   fd = open(path, O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr,"Failed to open gpio value for writing!\n");
+    fprintf(stderr,"Failed to open gpio value for writing at %d pin!\n", pin);
     return(-1);
   }
   if (1 != write(fd, &s_values_str[low == value ? 0: 1], 1)){
-    fprintf(stderr,"Failed to write value!\n");
+    fprintf(stderr,"Failed to write value at %d pin!\n", pin);
     close(fd);
     return(-1);
   }

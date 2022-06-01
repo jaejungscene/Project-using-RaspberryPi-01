@@ -7,9 +7,9 @@
 #define MAX_MSG 30
 #define L_CHANNEL 3
 #define R_CHANNEL 4
-#define WAIT_TIME 300000
+#define WAIT_TIME 500000
 
-int signal_from_main = 0;
+int signal_from_main = 1;
 int fd; //adc fd
 int L_pressure; // value of left pressure sensor
 int R_pressure; // value of right pressur esensor
@@ -27,17 +27,18 @@ void *alert_to_server(void *argv){
    if(sock == -1) error_handling("socket() error");
    memset(&serv_addr, 0, sizeof(serv_addr));
    serv_addr.sin_family = AF_INET; //IPv4
-   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]); // <-- 변경!!!!!!!!!
-   serv_addr.sin_port = htons(atoi(((char**)argv)[3])); // <-- 변경!!!!!!!!
+   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[1]); // <-- 변경!!!!!!!!!
+   serv_addr.sin_port = htons(atoi(((char**)argv)[2])); // <-- 변경!!!!!!!!
 
-   printf("%s : %s\n", ((char**)argv)[2], ((char**)argv)[3]);
+   printf("%s : %s\n", ((char**)argv)[1], ((char**)argv)[2]);
    while(signal_from_main == 1){
       if(L_pressure > 10 && R_pressure > 10){
-         connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+         printf("** sending **\n");
+         signal_from_main = 0;
+         connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr))
          // if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
          //    error_handling("connect() error");
          // }
-         printf("** send msg to server **\n");
          write(sock, "accident", sizeof("accident"));
          close(sock);
       }
@@ -77,57 +78,56 @@ int main(int argc, char *argv[]){
    pthread_t alert, L_pressure_sensor, R_pressure_sensor,
                high_vibration_sensor, low_vibration_sensor;
 
-   int serv_sock, clnt_sock = -1; // socket filedescriptor
-   struct sockaddr_in serv_addr, clnt_addr;
-   socklen_t clnt_addr_size = sizeof(clnt_addr);
-   char msg[MAX_MSG];
+   // int serv_sock, clnt_sock = -1; // socket filedescriptor
+   // struct sockaddr_in serv_addr, clnt_addr;
+   // socklen_t clnt_addr_size = sizeof(clnt_addr);
+   // char msg[MAX_MSG];
 
-   serverPrepare(&serv_sock, &serv_addr, &argv[1]);
-   clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
-   if (clnt_sock == -1) error_handling("accept() error");
-   printf("=== complete connection with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
+   // serverPrepare(&serv_sock, &serv_addr, &argv[1]);
+   // clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
+   // if (clnt_sock == -1) error_handling("accept() error");
+   // printf("=== complete connection with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
 
    int str_len = -1;
-   while(1)
-   {
-      printf("wait read...\n");
-      str_len = read(clnt_sock, msg, sizeof(msg));
-      if (str_len == -1){
-         error_handling("Err : read() error");
-      }
-      else if (!strcmp(msg, "1")){
-         printf("** active **\n");
-         signal_from_main = 1;
-      }
-      else if (!strcmp(msg, "0")){
-         printf("** inactive **\n");
-         signal_from_main = 0;
-         continue;
-         // close(clnt_sock);
-      }
+   // while(1)
+   // {
+      // printf("wait read...\n");
+      // str_len = read(clnt_sock, msg, sizeof(msg));
+      // if (str_len == -1){
+      //    error_handling("Err : read() error");
+      // }
+      // else if (!strcmp(msg, "1")){
+      //    printf("** active **\n");
+      //    signal_from_main = 1;
+      // }
+      // else if (!strcmp(msg, "0")){
+      //    printf("** inactive **\n");
+      //    signal_from_main = 0;
+      //    continue;
+      //    // close(clnt_sock);
+      // }
       
 
       fd = open(DEVICE, O_RDWR); // opening the DEVICE file as read/write
       if (fd <= 0) {
          printf( "Device %s not found\n", DEVICE);
-         break;
+         return 0;
       }
       if(prepare(fd) == -1){
-         break;
+         return 0;
       }
 
       pthread_create(&alert, NULL, alert_to_server, (void*)argv);
       pthread_create(&L_pressure_sensor, NULL, pressure_sensor_worker, (void*)L_CHANNEL);
       pthread_create(&R_pressure_sensor, NULL, pressure_sensor_worker, (void*)R_CHANNEL);
-      printf("============= check03 ===============\n");
       // pthread_create(&high_vibration_sensor, NULL, vibration_sensor_worker, NULL);
       // pthread_create(&low_vibration_sensor, NULL, vibration_sensor_worker, NULL);
-      // pthread_join(alert, NULL);
-      // pthread_join(L_pressure_sensor, NULL);
-      // pthread_join(R_pressure_sensor, NULL);
+      pthread_join(alert, NULL);
+      pthread_join(L_pressure_sensor, NULL);
+      pthread_join(R_pressure_sensor, NULL);
       // pthread_join(high_vibration_sensor, NULL);
       // pthread_join(low_vibration_sensor, NULL);
-   }
+   // }
 
    
 

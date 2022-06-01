@@ -18,12 +18,9 @@ int main(int argc, char* argv[]) {
    GPIODirection(PIN, OUT);
 
    int repeat = 4; //반복 횟수
-   int period = 300000; //반복 주기
-   int flag = 1;
+   int period = 300000; //반복 term
    for(int i=0; i<repeat; i++){
-      GPIOWrite(PIN, flag);
-      if(flag == 0)  flag = 1;
-      else  flag = 0;
+      GPIOWrite(PIN, i%2);
       usleep(period);
    }
 

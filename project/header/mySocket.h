@@ -1,5 +1,13 @@
+#include <stdio.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+
+void error_handling(char *message)
+{
+   fputs(message, stderr);
+   fputc('\n', stderr);
+   exit(1);
+}
 
 void clientConnecting(int *sock, struct sockaddr_in *dest_addr, char *args[])
 {

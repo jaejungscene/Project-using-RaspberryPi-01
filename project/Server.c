@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <pthread.h>
+#include <time.h>
 #include "header/mySocket.h"
 #include "header/gpioRW.h"
 
@@ -22,25 +23,60 @@
 int button_switch = 0;
 
 void *siren_thd(){
+   GPIOExport(PIN27);
+   GPIODirection(PIN27, OUT);
+   int term = 500000; //반복 term
+   int flag = 0;
+
    while(button_switch == 0){
-      GPIOExport(PIN27);
-      GPIODirection(PIN27, OUT);
-
-      int repeat = 4; //반복 횟수
-      int period = 300000; //반복 주기
-      for(int i=0; i<repeat; i++){
-         GPIOWrite(PIN27, i%2);
-         usleep(period);
+      if(flag == 0){
+         flag = 1;
+         GPIOWrite(PIN27, flag);
       }
-
-      GPIOWrite(PIN27, LOW);
-      GPIOUnexport(PIN27);
+      else{
+         flag = 0;
+         GPIOWrite(PIN27, flag);
+      }
+      usleep(term);
    }
+
+   GPIOWrite(PIN27, LOW);
+   GPIOUnexport(PIN27);
+   pthread_exit(NULL);
+}
+
+void *button_thd(){
+   int value;
+   int prev = 1;
+   if (-1 == GPIOExport(PIN21) || -1 == GPIOExport(PIN20))
+      exit(1);
+   if (-1 == GPIODirection(PIN21, OUT) || -1 == GPIODirection(PIN20, IN)) // PIN21 21, PIN20 20
+      exit(2);
+   if ( -1 == GPIOWrite (PIN21, 1)) // 처음 pin 21에 1을 write하면 이 값은 계속 유지된다.
+      exit(3);
+
+   while(1)
+   {
+      value = GPIORead(PIN20);
+      printf ("value : %d, prev : %d\n", value, prev);
+      if(prev == 1 && value == 0){ //button press
+         if(button_switch == 0){
+            button_switch == 1;
+            break;
+         }
+      }
+      prev = value;
+      usleep(100000);
+   }
+
+   if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20))
+      exit(4);
+   pthread_exit(NULL);
 }
 
 
 /* ./server <server Port> */
-#define MAX_STR 50
+#define MAX_STR 100
 int main(int argc, char *argv[])
 {
    int serv_sock, clnt_sock = -1; // socket filedescriptor
@@ -57,6 +93,7 @@ int main(int argc, char *argv[])
 
    int str_len;
    int fd;
+   time_t t;
    while (1)
    {
       if (clnt_sock < 0){
@@ -69,31 +106,36 @@ int main(int argc, char *argv[])
 
       printf("wait read...\n");
       str_len = read(clnt_sock, msg, sizeof(msg));
+      printf("from client : %s\n", msg); // <------------------------check
       if (str_len == -1){
          error_handling("read() error");
          continue;
       }
-      else(str_len){
+      else{
          if(!strcmp(msg, "accident")){ 
-            /*** 안전사고 자동신고 신호 ***/
+            /*** 안전사고 자동신고 신호 수신시 ***/
+            pthread_t siren, button;
             printf("*** in %s, an emergency accident occurs!! ***\n", inet_ntoa(clnt_addr.sin_addr));
+            pthread_create(&button, NULL, button_thd, NULL);
+            pthread_create(&siren, NULL, siren_thd, NULL);
+            pthread_join(button, NULL);
+            pthread_join(siren, NULL);
          }
          if(!strcmp(msg, "two")){
-            /** 2인 이상 신고 감지 신호 **/
+            /*** 2인 이상 신고 감지 신호 수신시 ***/
             if((fd = open("/home/pi/workspace/project/more_than_two_log", O_WRONLY)) == -1){
                error_handling("open() error in emergency_log");
             }
             else{
-               printf("*** in %s, an emergency accident occurs!! ***\n", inet_ntoa(clnt_addr.sin_addr));
+               time(&t);
+               snprintf(log, MAX_STR, "%s user had more then two people on borad at %s\n", inet_ntoa(clnt_addr.sin_addr), ctime(&t));
+               printf("%s", log); // <--------------------- check
                lseek(fd, 0, SEEK_END);
-               snprintf(log, MAX_STR, "in %s, an emergency accident occurs!!\n", inet_ntoa(clnt_addr.sin_addr));
                write(fd, promp, strlen(promp));
-               write(fd, str, strlen(str));
-               printf("=== finish ===\n");
+               write(fd, log, strlen(log));
                close(fd);
             }
          }
-         printf("from client : %s\n", msg);
       }
       close(clnt_sock);
       clnt_sock = -1;

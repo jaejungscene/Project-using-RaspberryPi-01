@@ -67,18 +67,18 @@ int main(int argc, char*argv[]){
       slave_addr[0].sin_family = AF_INET; //IPv4
       slave_addr[0].sin_addr.s_addr = inet_addr(argv[1]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
       slave_addr[0].sin_port = htons(atoi(argv[2])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
-
-      sock[1] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
-      if(sock[1] == -1) error_handling("socket() error");
-      memset(&slave_addr[1], 0, sizeof(slave_addr[1]));
-      slave_addr[1].sin_family = AF_INET; //IPv4
-      slave_addr[1].sin_addr.s_addr = inet_addr(argv[3]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
-      slave_addr[1].sin_port = htons(atoi(argv[4])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
-
       if(connect(sock[0], (struct sockaddr*)&slave_addr[0], sizeof(slave_addr[0])) == -1)
          error_handling("connect() error");
-      if(connect(sock[1], (struct sockaddr*)&slave_addr[1], sizeof(slave_addr[0])) == -1)
-         error_handling("connect() error");
+
+      // sock[1] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+      // if(sock[1] == -1) error_handling("socket() error");
+      // memset(&slave_addr[1], 0, sizeof(slave_addr[1]));
+      // slave_addr[1].sin_family = AF_INET; //IPv4
+      // slave_addr[1].sin_addr.s_addr = inet_addr(argv[3]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
+      // slave_addr[1].sin_port = htons(atoi(argv[4])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
+      // if(connect(sock[1], (struct sockaddr*)&slave_addr[1], sizeof(slave_addr[0])) == -1)
+      //    error_handling("connect() error");
+
       printf("** complete connecting **\n");
    /*************************************************/
 
@@ -102,42 +102,44 @@ int main(int argc, char*argv[]){
 
    
       /******* 버튼을 누르면 나머지 두 모듈에게 1(active)명령어 전달(QR코드를 찍어 킥보드를 탈수 있는 상황) *******/
-      do {
+      while (1)
+      {
          value = GPIORead(PIN20);
-         if(value == 0 && prev == 1) // button을 !!!press하고 할때!!!
+         if(value == 0 && prev == 1) // press 할때
             break;
          prev = value;
          usleep(10000);
       }
-      while (1);
 
       command[0] = '1'; // 1 is "active"
       write(sock[0], command, sizeof(command));
+      // write(sock[1], command, sizeof(command));
       printf("send 1(active command)\n");
       /*************************************************/
 
       /******* 버튼을 한번 더 누르면 나머지 두 모듈에게 0(inactive)명령어 전달(킥보드를 반납하는 상황) *******/
-      do {
+      while (1)
+      {
          value = GPIORead(PIN20);
-         if(value == 0 && prev == 1) // button을 !!!press하고 할때!!!
+         if(value == 0 && prev == 1) // press 할때
             break;
          prev = value;
          usleep(10000);
       }
-      while (1);
 
       command[0] = '0'; // 0 is "inactive"
       write(sock[0], command, sizeof(command));
+      // write(sock[1], command, sizeof(command));
       printf("send 0(inactive command)\n");
       /*************************************************/
    }
 
    close(sock[0]);
+   // close(sock[1]);
    if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20))
       return(4);
    printf("=========== finish ===========\n");
    
-   return 0;
    // if(fork() == 0){
    //    if(fork() == 0){
    //       execv("./Two_Warning", NULL);
@@ -156,7 +158,7 @@ int main(int argc, char*argv[]){
    //    printf("============= all finish =============\n");
    //    return(0);
    // }
-
+   return 0;
 }
 
 void error_handling(char *message){

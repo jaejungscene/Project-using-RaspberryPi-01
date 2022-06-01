@@ -89,7 +89,6 @@ int main(int argc, char *argv[])
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    char msg[MAX_STR];
    char log[MAX_STR];
-   char promp[5] = ">>> ";
 
    if (argc > 1)
       printf("<port> : %s\n", argv[1]);
@@ -134,10 +133,9 @@ int main(int argc, char *argv[])
             }
             else{
                time(&t);
-               snprintf(log, MAX_STR, "%s user had more then two people on borad at %s\n", inet_ntoa(clnt_addr.sin_addr), ctime(&t));
+               snprintf(log, MAX_STR, ">>> %s user, at %s\n", inet_ntoa(clnt_addr.sin_addr), ctime(&t));
                printf("%s", log); // <--------------------- check
                lseek(fd, 0, SEEK_END);
-               write(fd, promp, strlen(promp));
                write(fd, log, strlen(log));
                close(fd);
             }

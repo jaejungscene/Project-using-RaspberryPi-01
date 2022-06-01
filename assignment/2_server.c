@@ -128,14 +128,6 @@ int main(int argc, char *argv[])
     if(clnt_sock<0){
       clnt_addr_size = sizeof(clnt_addr);
       printf("waiting...\n");
-      // if(clnt_sock == -2){
-      //   printf(">> ");
-      //   fgets(msg, sizeof(msg), stdin);
-      //   msg[strlen(msg)-1] = '\0';
-      //   if(!strcmp(msg, "exit")){
-      //     break;
-      //   }
-      // }
       clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
       if(clnt_sock == -1) error_handling("accept() error");
     }
@@ -150,10 +142,6 @@ int main(int argc, char *argv[])
         error_handling("read() error");
         continue;
       }
-      // else if(!strcmp(msg, "exit")){
-      //   printf("** disconnect **\n");
-      //   break;
-      // }
 #define CHANNEL 2
       printf("%s\n", msg);
       if(strcmp(msg, "request") == 0){

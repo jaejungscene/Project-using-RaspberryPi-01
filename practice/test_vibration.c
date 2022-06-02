@@ -11,13 +11,13 @@
 #define OUT 1
 #define LOW 0
 #define HIGH 1
-#define PIN 17
+#define PIN 22
 
 int main(int argc, char* argv[]) {
    GPIOExport(PIN);
    GPIODirection(PIN, IN);
 
-   int repeat = 200; //반복 횟수
+   int repeat = 100; //반복 횟수
    int value = -1;
 
    for(int i=0; i<repeat; i++){

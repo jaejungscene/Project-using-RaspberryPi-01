@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
    GPIOExport(PIN);
    GPIODirection(PIN, OUT);
 
-   int repeat = 4; //반복 횟수
+   int repeat = 30; //반복 횟수
    int period = 300000; //반복 term
    for(int i=0; i<repeat; i++){
       GPIOWrite(PIN, i%2);

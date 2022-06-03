@@ -24,13 +24,14 @@ int front_weight; // value of left pressure sensor
 int back_weight; // value of right pressur esensor
 
 
-
 void *alert_to_server(void *argv){
-   printf("alert thread start\n");
+   printf("----- start alert thread -----\n");
 
    while(signal_from_main == 1){
-      if( (L_pressure > 10 || R_pressure > 10) && (front_weight == 1 || back_weight == 1) )
+      if( L_pressure > 10 && R_pressure > 10 && (front_weight == 1 || back_weight == 1) ){
+         printf("boarding !\n");
          break;
+      }
    }
 
    int sock;
@@ -47,61 +48,79 @@ void *alert_to_server(void *argv){
    printf("%s : %s\n", ((char**)argv)[2], ((char**)argv)[3]);
    while(signal_from_main == 1){
       if(L_pressure <= 0 && R_pressure <= 0 && front_weight==0 && back_weight==0){
-         connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-         // if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
-         //    error_handling("connect() error");
-         // }
-         printf("** send msg to server **\n");
-         write(sock, "accident", sizeof("accident"));
-         close(sock);
+         printf("reach01 !!!\n");
+         // 주행자가 킥보드를 반납할 때 센서 값들이 모두 0일 수도 있으므로
+         // 킥보드를 반납하는 시간을 10초 정도로 잡아
+         // 10초 후에도 킥보드가 반납이 되지 않고
+         // 센서값들이 모두 0이면
+         // 사고 발생으로 감지
+         sleep(10); 
+         if(signal_from_main == 0)
+            break;
+         if(L_pressure <= 0 && R_pressure <= 0 && front_weight==0 && back_weight==0){
+            printf("reach02 !!!\n");
+
+            if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
+               error_handling("connect() error");
+            }
+
+            printf("R_pressure: %3d\n", L_pressure);
+            printf("L_pressure: %3d\n", R_pressure);
+            printf("Fron weight: %3d\n", FRONT_PIN, front_weight);
+            printf("Back weight: %3d\n", BACK_PIN, back_weight);
+
+            printf("** send \'accident\' msg to server **\n");
+            write(sock, "accident", sizeof("accident"));
+            close(sock);
+            break;
+         }
       }
    }
-
+   printf("----- finish alert thread -----\n");
    pthread_exit(NULL);
 }
 
 
 
 void *pressure_sensor_worker(void *param){
-   printf("pressure thread start\n");
+   printf("----- start pressure thread -----\n");
 
    while(signal_from_main == 1){
       if((long)param == L_CHANNEL){
          L_pressure = readadc(fd, (long)L_CHANNEL);
-         printf("%ld -> pressure: %3d\n", (long)L_CHANNEL, L_pressure);
+         // printf("%d -> pressure: %3d\n", L_CHANNEL, L_pressure);
       }
       else{
          R_pressure = readadc(fd, (long)R_CHANNEL);
-         printf("%ld -> pressure: %3d\n", (long)R_CHANNEL, R_pressure);
+         // printf("%d -> pressure: %3d\n", R_CHANNEL, R_pressure);
       }
       usleep(WAIT_TIME);
    }
 
+   printf("----- finish pressure thread -----\n");
    pthread_exit(NULL);
 }
 
 
 
 void *weight_sensor_worker(void *param){
-   printf("weight thread start\n");
+   printf("----- start weight thread -----\n");
 
-   GPIOExport((long)param);
-   GPIODirection((long)param, IN);
    int value;
 
    while(signal_from_main == 1){
       if((long)param == FRONT_PIN){
          front_weight = GPIORead(FRONT_PIN);
-         printf("%ld -> weight: %3d\n", (long)FRONT_PIN, front_weight);
+         // printf("%d -> weight: %3d\n", FRONT_PIN, front_weight);
       }
       else{
          back_weight = GPIORead(BACK_PIN);
-         printf("%ld -> weight: %3d\n", (long)BACK_PIN, back_weight);
+         // printf("%d -> weight: %3d\n", BACK_PIN, back_weight);
       }
       usleep(WAIT_TIME);
    }
 
-   GPIOUnexport((long)param);
+   printf("----- finish weight thread -----\n");
    pthread_exit(NULL);
 }
 
@@ -114,8 +133,9 @@ void *vibration_sensor_worker(){
 
 
 // ./(file) <port> <Server ip> <Server port>
-int main(int argc, char *argv[]){
-   printf("== automatic report start ==\n");
+int main(int argc, char *argv[])
+{
+   printf("===== automatic report start =====\n");
    pthread_t alert, L_pressure_sensor, R_pressure_sensor,
                front_weight_sensor, back_weight_sensor;
 
@@ -127,11 +147,22 @@ int main(int argc, char *argv[]){
    serverPrepare(&serv_sock, &serv_addr, &argv[1]);
    clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
    if (clnt_sock == -1) error_handling("accept() error");
-   printf("=== complete connection with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
+   printf("** complete connection with %s **\n", inet_ntoa(clnt_addr.sin_addr));
+
+   /**
+    * Automatic_Report와 겹치는 센서이다보니
+    * GPIO Unexport와 Export가 겹치는 상황이
+    * 생겨 thread 내에 작성하지 않음
+    **/
+   GPIOExport(FRONT_PIN);
+   GPIOExport(BACK_PIN);
+   GPIODirection(FRONT_PIN, IN);
+   GPIODirection(BACK_PIN, IN);
 
    int str_len = -1;
    while(1)
    {
+      printf("#######################################\n");
       printf("wait read...\n");
       str_len = read(clnt_sock, msg, sizeof(msg));
       if (str_len == -1){
@@ -163,16 +194,12 @@ int main(int argc, char *argv[]){
       pthread_create(&R_pressure_sensor, NULL, pressure_sensor_worker, (void*)R_CHANNEL);
       pthread_create(&front_weight_sensor, NULL, weight_sensor_worker, (void*)FRONT_PIN);
       pthread_create(&back_weight_sensor, NULL, weight_sensor_worker, (void*)BACK_PIN);
-      printf("============= check03 ===============\n");
-      // pthread_create(&front_weight_sensor, NULL, vibration_sensor_worker, NULL);
-      // pthread_create(&back_weight_sensor, NULL, vibration_sensor_worker, NULL);
-      // pthread_join(alert, NULL);
-      // pthread_join(L_pressure_sensor, NULL);
-      // pthread_join(R_pressure_sensor, NULL);
-      // pthread_join(front_weight_sensor, NULL);
-      // pthread_join(back_weight_sensor, NULL);
+      usleep(1000000); // console 출력들을 보기 좋게 하기 위해
    }
 
-   printf("== automatic report finish ==\n");
+   GPIOUnexport(FRONT_PIN);
+   GPIOUnexport(BACK_PIN);
+   close(clnt_sock);
+   printf("===== finish automatic report =====\n");
    return 0;
 }

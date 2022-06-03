@@ -36,5 +36,5 @@ void serverPrepare(int *sock, struct sockaddr_in *my_addr, char *args[])
     error_handling("bind() error");
 
   if(listen(*sock, 5) == -1) error_handling("listen() error");
-  printf("listening...\n");
+//   printf("listening...\n");
 }

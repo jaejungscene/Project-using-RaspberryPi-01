@@ -15,17 +15,19 @@
 
 int main(int argc, char* argv[]) {
    GPIOExport(PIN);
-   GPIODirection(PIN, OUT);
-
-   int repeat = 10; //반복 횟수
-   int period = 300000; //반복 term
-   for(int i=0; i<repeat; i++){
-      printf("%3d\n",i);
-      GPIOWrite(PIN, i%2);
-      usleep(period);
+   GPIODirection(PIN, IN);
+   int cnt = 0;
+   while(cnt < 100) {
+       if(GPIORead(PIN) == 1){
+           printf("%d) Not Detected\n", cnt);
+       }
+       else{
+           printf("%d) Detected!\n", cnt);
+       }
+       cnt++;
+       usleep(500000);
    }
 
-   GPIOWrite(PIN, LOW);
    GPIOUnexport(PIN);
    return 0;
 }

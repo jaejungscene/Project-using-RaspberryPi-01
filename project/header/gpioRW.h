@@ -12,7 +12,7 @@ static int GPIOExport(int pin)
 
   fd = open("/sys/class/gpio/export", O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr, "Failed to open export for writing at %d pin!\n", pin);
+    fprintf(stderr, "Failed to open export at %d pin!\n", pin);
     return(-1);
   }
 
@@ -36,7 +36,7 @@ static int GPIODirection(int pin, int dir) {
 
   fd = open(path, O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr,"Failed to open gpio direction for writing at %d pin!\n", pin);
+    fprintf(stderr,"Failed to open gpio direction at %d pin!\n", pin);
   }
   if (-1 == write(fd, &s_directions_str[in == dir ? 0 : 3], in == dir ? 2 : 3)) {
     fprintf(stderr,"Failed to set direction at %d pin!\n", pin);
@@ -58,7 +58,7 @@ static int GPIOUnexport(int pin)
 
   fd=open("/sys/class/gpio/unexport", O_WRONLY);
   if (-1 == fd) {
-    fprintf(stderr, "Failed to open unexport for writing at %d pin!\n", pin);
+    fprintf(stderr, "Failed to open unexport at %d pin!\n", pin);
     return(-1);
   }
   bytes_written = snprintf(buffer, Buffer_Max, "%d", pin);

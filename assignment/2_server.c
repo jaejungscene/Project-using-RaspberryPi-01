@@ -100,17 +100,17 @@ int main(int argc, char *argv[])
   socklen_t clnt_addr_size;
   char msg[MAX_MSG];
 
-  if(argc!=1)
-    printf("<port> : %s\n",argv[1]);
   serv_sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP
-  if(serv_sock == -1) error_handling("socket() error");
+  if(serv_sock == -1)
+    error_handling("socket() error");
   memset(&serv_addr, 0 , sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   serv_addr.sin_port = htons(atoi(argv[1]));
   if(bind(serv_sock, (struct sockaddr*) &serv_addr, sizeof(serv_addr))==-1)
     error_handling("bind() error");
-  if(listen(serv_sock,5) == -1) error_handling("listen() error");
+  if(listen(serv_sock,5) == -1) 
+    error_handling("listen() error");
 
 
   int fd = open(DEVICE, O_RDWR); // opening the DEVICE file as read/write
@@ -127,9 +127,10 @@ int main(int argc, char *argv[])
   while(1){
     if(clnt_sock<0){
       clnt_addr_size = sizeof(clnt_addr);
-      printf("waiting...\n");
+      printf("wait client...\n");
       clnt_sock = accept(serv_sock, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
-      if(clnt_sock == -1) error_handling("accept() error");
+      if(clnt_sock == -1) 
+        error_handling("accept() error");
     }
 
     printf("=== connectiond establish with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
@@ -137,16 +138,16 @@ int main(int argc, char *argv[])
     int str_len = -1;
     printf("wait read...\n");
     while(1){
+      // client에서 값이 들어올 때마다 read()
       str_len = read(clnt_sock, msg, sizeof(msg));
       if(str_len == -1){
         error_handling("read() error");
         continue;
       }
 #define CHANNEL 2
-      printf("%s\n", msg);
       if(strcmp(msg, "request") == 0){
         light = readadc(fd, CHANNEL);
-        printf("write %d\n", light);
+        printf("write %d to client\n", light);
         snprintf(msg, MAX_MSG, "%d", light);
         write(clnt_sock, msg, sizeof(msg));
       }

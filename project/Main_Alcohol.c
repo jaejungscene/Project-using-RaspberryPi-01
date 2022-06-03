@@ -18,8 +18,10 @@
 #define OUT 1
 #define LOW 0
 #define HIGH 1
+#define PIN16 16 //스피커
 #define PIN21 21
 #define PIN20 20
+#define PIN27 27 //알코올 
 
 void error_handling(char *message);
 // void clientConnecting(int *sock, struct sockaddr_in *dest_addr, char *args[]){
@@ -35,6 +37,7 @@ void error_handling(char *message);
 //    printf("** complete connecting with %s **\n", args[0]);
 // }
 
+// ./Main_Alcohol <slaves IP> <slave1 port> <slave2 port>
 int main(int argc, char*argv[]){
    /************** 버튼 활성화 ***************/
    int state = 1;
@@ -48,6 +51,14 @@ int main(int argc, char*argv[]){
       return(2);
    if ( -1 == GPIOWrite (PIN21, 1)) // 처음 pin 21에 1을 write하면 이 값은 계속 유지된다.
       return(3);
+
+   /************** 스피커 활성화 ***************/
+   GPIOExport(PIN16);
+   GPIODirection(PIN16, OUT);
+
+   /************** 알코올센서 활성화 ***************/
+   GPIOExport(PIN27);
+   GPIODirection(PIN27, IN);
    /*************************************************/
 
    /******************** 모듈간 통신 활성화 ***********************/
@@ -74,68 +85,111 @@ int main(int argc, char*argv[]){
    if(connect(sock[1], (struct sockaddr*)&slave_addr[1], sizeof(slave_addr[1])) == -1)
       error_handling("connect() error");
 
-   printf("** complete connecting **\n");
+   printf("** complete connecting with two slaves **\n");
    /***********************************************************/
 
 
    // char exit[5];
    while(1)
    {
-      printf("===========================\n");
-      // printf(">> ");
-      // scanf("%s\n", exit);
-      // if(!strcmp(exit, "exit"))   break;
-
-      
+      printf("#################################\n");
       /********** 알코올 감지센서 알고리즘 ***********/
+      printf("button wait for Alcohol Check...\n");
+      while(1){
+         value = GPIORead(PIN20);
+         if(value == 0 && prev == 1) // press
+            break;
+         prev = value;
+         usleep(10000);
+      }
 
-      /*****************************************/
-   
+      //스피커 울리기
+      GPIOWrite(PIN16, HIGH);
+      sleep(1);
+      GPIOWrite(PIN16, LOW);
 
+      int cnt = 0;
+      int state = 0;
+      printf("alcohol checking...\n");
+      while(cnt < 5) { // 5초
+         if( (value = GPIORead(PIN27)) == 0){
+            state = 1; //detected!!
+            break;
+         }
+         cnt++;
+         sleep(1);
+      }
+
+      if(state){
+         // 5초간 스피커 울림
+         printf("**** Alcohol is detected!!! ****\n");
+
+         int repeat = 10; // 반복 횟수
+         int period = 300000; // 반복 term
+         for(int i=0; i<repeat; i++){
+            GPIOWrite(PIN16, i%2);
+            usleep(period);
+         }
+         GPIOWrite(PIN16, LOW);
+      }
+      else{
       /******* 버튼을 누르면 나머지 두 모듈에게 1(active)명령어 전달 <QR코드를 찍는 행위> *******/
-      printf("button wait...\n");
-      // printf("check03\n");
-      while (1)
-      {
-         value = GPIORead(PIN20);
-         if(value == 0 && prev == 1) // press 할때
-            break;
-         prev = value;
-         usleep(10000);
+         printf("** Alcohol is not detected **\n");
+         printf("button(active) wait...\n");
+         cnt = 0;
+         while (1)
+         {
+            if(cnt >= 1000){ // 10초 지나면
+               break;
+            }
+            value = GPIORead(PIN20);
+            if(value == 0 && prev == 1) // press 할때
+               break;
+            prev = value;
+            usleep(10000);
+            cnt++;
+         }
+         if(cnt >= 1000){ // 10초 지나면
+            printf("** timeout!! **\n");
+            continue;
+         }
+
+         strcpy(command, "1"); // 1 is "active"
+         write(sock[0], command, sizeof(command));
+         write(sock[1], command, sizeof(command));
+         printf("send 1(active command)\n");
+         usleep(1000000);
+         /*************************************************/
+
+
+         /******* 버튼을 한번 더 누르면 나머지 두 모듈에게 0(inactive)명령어 전달 <킥보드를 반납하는 행위> *******/
+         printf("button(inactive) wait...\n");
+         while (1)
+         {
+            value = GPIORead(PIN20);
+            if(value == 0 && prev == 1) // press 할때
+               break;
+            prev = value;
+            usleep(10000);
+         }
+
+         strcpy(command, "0"); // 0 is "inactive"
+         write(sock[0], command, sizeof(command));
+         write(sock[1], command, sizeof(command));
+         printf("send 0(inactive command)\n");
+
+         prev = 1;
+         usleep(1000000);
+         /*************************************************/
       }
-
-      strcpy(command, "1"); // 1 is "active"
-      write(sock[0], command, sizeof(command));
-      // write(sock[1], command, sizeof(command));
-      printf("send 1(active command)\n");
-      usleep(1000000);
-      /***************************************************************************/
-
-
-      /******* 버튼을 한번 더 누르면 나머지 두 모듈에게 0(inactive)명령어 전달 <킥보드를 반납하는 행위> *******/
-      while (1)
-      {
-         value = GPIORead(PIN20);
-         if(value == 0 && prev == 1) // press 할때
-            break;
-         prev = value;
-         usleep(10000);
-      }
-
-      strcpy(command, "0"); // 0 is "inactive"
-      write(sock[0], command, sizeof(command));
-      // write(sock[1], command, sizeof(command));
-      printf("send 0(inactive command)\n");
-
-      prev = 1;
-      usleep(1000000);
-      /**************************************************************************************/
    }
 
+   if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20) \
+      -1 == GPIOUnexport(PIN16)|| -1 == GPIOUnexport(PIN27))
+            return(4);
    close(sock[0]);
-   // close(sock[1]);
-   if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20))
-      return(4);
+   close(sock[1]);
+
    printf("=========== finish ===========\n");
    
    return 0;

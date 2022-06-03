@@ -23,7 +23,7 @@
 int button_switch = 0;
 
 void *siren_thd(){
-   printf("======= siren_thd start =======\n");
+   printf("------ siren_thd start ------\n");
    GPIOExport(PIN27);
    GPIODirection(PIN27, OUT);
    int term = 500000; //반복 term
@@ -39,17 +39,17 @@ void *siren_thd(){
          GPIOWrite(PIN27, flag);
       }
       usleep(term);
-      printf("button_switch %d\n", button_switch);
+      // printf("button_switch %d\n", button_switch);
    }
 
    GPIOWrite(PIN27, LOW);
-   GPIOUnexport(PIN27);
-   printf("====== finish siren_thd ======\n");
+   // GPIOUnexport(PIN27);
+   printf("------ finish siren_thd ------\n");
    pthread_exit(NULL);
 }
 
 void *button_thd(){
-   printf("======= button_thd start =======\n");
+   printf("------ button_thd start ------\n");
    int value;
    int prev = 1;
    if (-1 == GPIOExport(PIN21) || -1 == GPIOExport(PIN20))
@@ -62,8 +62,9 @@ void *button_thd(){
    while(1)
    {
       value = GPIORead(PIN20);
-      printf ("value : %d, prev : %d\n", value, prev);
+      // printf ("value : %d, prev : %d\n", value, prev);
       if(prev == 1 && value == 0){ //button press
+         printf ("button press - 신고 확인 !\n", value, prev);
          if(button_switch == 0){
             button_switch = 1;
             break;
@@ -75,7 +76,7 @@ void *button_thd(){
 
    if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20))
       exit(4);
-   printf("====== finish button_thd ======\n");
+   printf("------ finish button_thd ------\n");
    pthread_exit(NULL);
 }
 
@@ -89,9 +90,6 @@ int main(int argc, char *argv[])
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    char msg[MAX_STR];
    char log[MAX_STR];
-
-   if (argc > 1)
-      printf("<port> : %s\n", argv[1]);
 
    serverPrepare(&serv_sock, &serv_addr, &argv[1]);
 
@@ -107,7 +105,7 @@ int main(int argc, char *argv[])
             error_handling("accept() error");
       }
 
-      printf("=== complete connection with %s ===\n", inet_ntoa(clnt_addr.sin_addr));
+      printf("** complete connection with %s **\n", inet_ntoa(clnt_addr.sin_addr));
 
       printf("wait read...\n");
       str_len = read(clnt_sock, msg, sizeof(msg));
@@ -144,6 +142,7 @@ int main(int argc, char *argv[])
       close(clnt_sock);
       clnt_sock = -1;
       button_switch = 0;
+      printf("#######################################\n");
    }
 
    printf("=========== server end ===========\n");

@@ -13,10 +13,10 @@ int fd; // file descriptor for DEVICE
 
 void work(int pwmnum, int channel)
 {
-  int light = 0;
+  int value = 0;
   for(int i=0; i<TIME; i++){
-    light = readadc(fd, channel);
-    printf("%d -> %3d) light: %3d\n", channel, i, light);
+    value = readadc(fd, channel);
+    printf("%d -> %3d) value: %3d\n", channel, i, value);
     usleep(90000);
   }
 }

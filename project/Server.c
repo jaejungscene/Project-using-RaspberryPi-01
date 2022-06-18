@@ -1,152 +1,222 @@
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <fcntl.h>
+/*****************************************
+ * 버튼을 누를 때 전동킥보드가 활성화된다고 가정한다.
+ * 정해진 시간동안 알코올 감지센서의 값이 특정 값보다 낮게 나와야지
+ * 버튼을 눌러서 다른 모튤들을 활성화시킬 수 있다.
+ *****************************************/
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <pthread.h>
-#include <time.h>
-#include "header/mySocket.h"
 #include "header/gpioRW.h"
+// #include <sys/wait.h>
+
 
 #define IN 0
 #define OUT 1
 #define LOW 0
 #define HIGH 1
-#define PIN20 20
+#define SPEAKER_PIN 16 //스피커
 #define PIN21 21
-#define PIN27 27
+#define PIN20 20
+#define PIN27 27 //알코올 
 
-int button_switch = 0;
+int exit_signal = 1;
 
-void *siren_thd(){
-   printf("------ siren_thd start ------\n");
-   GPIOExport(PIN27);
-   GPIODirection(PIN27, OUT);
-   int term = 500000; //반복 term
-   int flag = 0;
+int sock[2];
+struct sockaddr_in slave_addr[2];
+char command[2];
 
-   while(button_switch == 0){
-      if(flag == 0){
-         flag = 1;
-         GPIOWrite(PIN27, flag);
+void error_handling(char *message);
+void *exit_worker(){
+   char str_exit[2];
+   while(1){
+      scanf("%s", str_exit);
+      if(!strcmp(str_exit, "e")){
+         break;
       }
-      else{
-         flag = 0;
-         GPIOWrite(PIN27, flag);
-      }
-      usleep(term);
-      // printf("button_switch %d\n", button_switch);
    }
-
-   GPIOWrite(PIN27, LOW);
-   // GPIOUnexport(PIN27);
-   printf("------ finish siren_thd ------\n");
-   pthread_exit(NULL);
+   write(sock[0], str_exit, strlen(str_exit)+1);
+   write(sock[1], str_exit, strlen(str_exit)+1);
+   printf("send e(exit command) to two slaves\n");
+   exit_signal = 0;
 }
 
-void *button_thd(){
-   printf("------ button_thd start ------\n");
-   int value;
-   int prev = 1;
+// ./Main_Alcohol <slaves IP> <slave1 port> <slave2 port>
+int main(int argc, char*argv[]){
+   printf("========== main alcohol start ==========\n");
+   
+   /************** 버튼 활성화 ***************/
+   int state = 1;
+   int light = 0;
+   int prev = 1; //button을 press하고 땔 때
+   int value;  
+
    if (-1 == GPIOExport(PIN21) || -1 == GPIOExport(PIN20))
-      exit(1);
-   if (-1 == GPIODirection(PIN21, OUT) || -1 == GPIODirection(PIN20, IN)) // PIN21 21, PIN20 20
-      exit(2);
+      return(1);
+   if (-1 == GPIODirection(PIN21, OUT) || -1 == GPIODirection(PIN20, IN))
+      return(2);
    if ( -1 == GPIOWrite (PIN21, 1)) // 처음 pin 21에 1을 write하면 이 값은 계속 유지된다.
-      exit(3);
+      return(3);
 
-   while(1)
+   /************** 스피커 활성화 ***************/
+   GPIOExport(SPEAKER_PIN);
+   GPIODirection(SPEAKER_PIN, OUT);
+
+   /************** 알코올센서 활성화 ***************/
+   GPIOExport(PIN27);
+   GPIODirection(PIN27, IN);
+   /*************************************************/
+
+   /******************** 모듈간 통신 활성화 ***********************/
+   sock[0] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   if(sock[0] == -1) error_handling("socket() error");
+   memset(&slave_addr[0], 0, sizeof(slave_addr[0]));
+   slave_addr[0].sin_family = AF_INET; //IPv4
+   slave_addr[0].sin_addr.s_addr = inet_addr(argv[1]);
+   slave_addr[0].sin_port = htons(atoi(argv[2]));
+   if(connect(sock[0], (struct sockaddr*)&slave_addr[0], sizeof(slave_addr[0])) == -1)
+      error_handling("connect() error");
+
+   sock[1] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   if(sock[1] == -1) error_handling("socket() error");
+   memset(&slave_addr[1], 0, sizeof(slave_addr[1]));
+   slave_addr[1].sin_family = AF_INET; //IPv4
+   slave_addr[1].sin_addr.s_addr = inet_addr(argv[1]);
+   slave_addr[1].sin_port = htons(atoi(argv[3]));
+   if(connect(sock[1], (struct sockaddr*)&slave_addr[1], sizeof(slave_addr[1])) == -1)
+      error_handling("connect() error");
+
+   printf("** complete connecting with two slaves **\n");
+   /***********************************************************/
+
+   pthread_t exit_thd;
+   pthread_create(&exit_thd, NULL, exit_worker, NULL);
+
+   while(exit_signal)
    {
-      value = GPIORead(PIN20);
-      // printf ("value : %d, prev : %d\n", value, prev);
-      if(prev == 1 && value == 0){ //button press
-         printf ("button press - 신고 확인 !\n", value, prev);
-         if(button_switch == 0){
-            button_switch = 1;
+      printf("#################################\n");
+      /********** 알코올 감지센서 알고리즘 ***********/
+      printf("button wait for Alcohol Check...\n");
+      while(exit_signal){
+         value = GPIORead(PIN20);
+         if(value == 0 && prev == 1) // press
             break;
+         prev = value;
+         usleep(10000);
+      }
+
+      if(exit_signal == 0) // 종료
+         break;
+
+      //스피커 울리기
+      GPIOWrite(SPEAKER_PIN, HIGH);
+      sleep(1);
+      GPIOWrite(SPEAKER_PIN, LOW);
+
+      int cnt = 0;
+      int state = 0;
+      // printf("alcohol checking...\n");
+      // while(cnt < 5) { // 5초
+      //    if( (value = GPIORead(PIN27)) == 0){
+      //       state = 1; //alcohol detected!!
+      //       break;
+      //    }
+      //    cnt++;
+      //    sleep(1);
+      // }
+
+      if(exit_signal == 0) // 종료
+         break;
+
+      if(state){
+      /****** alcoholdl detect되어 5초간 스피커 울림 ******/
+         printf("**** Alcohol is detected!!! ****\n");
+
+         int repeat = 10; // 반복 횟수
+         int period = 300000; // 반복 term
+         for(int i=0; i<repeat; i++){
+            GPIOWrite(SPEAKER_PIN, i%2);
+            usleep(period);
          }
-      }
-      prev = value;
-      usleep(100000);
-   }
-
-   if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20))
-      exit(4);
-   printf("------ finish button_thd ------\n");
-   pthread_exit(NULL);
-}
-
-
-/* ./server <server Port> */
-#define MAX_STR 100
-int main(int argc, char *argv[])
-{
-   int serv_sock, clnt_sock = -1; // socket filedescriptor
-   struct sockaddr_in serv_addr, clnt_addr;
-   socklen_t clnt_addr_size = sizeof(clnt_addr);
-   char msg[MAX_STR];
-   char log[MAX_STR];
-
-   serverPrepare(&serv_sock, &serv_addr, &argv[1]);
-
-   int str_len;
-   int fd;
-   time_t t;
-   while (1)
-   {
-      if (clnt_sock < 0){
-         printf("wait client...\n");
-         clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
-         if (clnt_sock == -1)
-            error_handling("accept() error");
-      }
-
-      printf("** complete connection with %s **\n", inet_ntoa(clnt_addr.sin_addr));
-
-      printf("wait read...\n");
-      str_len = read(clnt_sock, msg, sizeof(msg));
-      printf("from client : %s\n", msg); // <------------------------check
-      if (str_len == -1){
-         error_handling("read() error");
-         continue;
+         GPIOWrite(SPEAKER_PIN, LOW);
       }
       else{
-         if(!strcmp(msg, "accident")){ 
-            /*** 안전사고 자동신고 신호 수신시 ***/
-            pthread_t siren, button;
-            printf("*** in %s, an emergency accident occurs!! ***\n", inet_ntoa(clnt_addr.sin_addr));
-            pthread_create(&button, NULL, button_thd, NULL);
-            pthread_create(&siren, NULL, siren_thd, NULL);
-            pthread_join(button, NULL);
-            pthread_join(siren, NULL);
-         }
-         else if(!strcmp(msg, "two")){
-            /*** 2인 이상 신고 감지 신호 수신시 ***/
-            if((fd = open("/home/pi/workspace/project/log.txt", O_WRONLY)) == -1){
-               error_handling("open() error in emergency_log");
+      /******* 버튼을 누르면 나머지 두 모듈에게 1(active)명령어 전달 <QR코드를 찍는 행위> *******/
+         printf("** Alcohol is not detected **\n");
+         printf("button(active) wait...\n");
+         cnt = 0;
+         while (exit_signal)
+         {
+            if(cnt >= 10000){ // 10초 지나면
+               break;
             }
-            else{
-               time(&t);
-               snprintf(log, MAX_STR, ">>> %s user, at %s\n", inet_ntoa(clnt_addr.sin_addr), ctime(&t));
-               printf("%s", log); // <--------------------- check
-               lseek(fd, 0, SEEK_END);
-               write(fd, log, strlen(log));
-               close(fd);
-            }
+            value = GPIORead(PIN20);
+            if(value == 0 && prev == 1) // press 할때
+               break;
+            prev = value;
+            usleep(1000);
+            cnt++;
          }
+         
+         if(exit_signal == 0) // 종료
+            break;
+
+         if(cnt >= 10000){ // 10초 동안 press하지 않으면 다시 alcohol감사
+            printf("** timeout!! **\n");
+            continue;
+         }
+
+         strcpy(command, "1"); // 1 is "active"
+         write(sock[0], command, strlen(command)+1);
+         write(sock[1], command, strlen(command)+1);
+         printf("send 1(active command)\n");
+         usleep(1000000);
+         /*************************************************/
+
+
+         /******* 버튼을 한번 더 누르면 나머지 두 모듈에게 0(inactive)명령어 전달 <킥보드를 반납하는 행위> *******/
+         printf("button(inactive) wait...\n");
+         while (exit_signal)
+         {
+            value = GPIORead(PIN20);
+            if(value == 0 && prev == 1) // press 할때
+               break;
+            prev = value;
+            usleep(10000);
+         }
+
+         if(exit_signal == 0) // 종료
+            break;
+
+         strcpy(command, "0"); // 0 is "inactive"
+         write(sock[0], command, strlen(command)+1);
+         write(sock[1], command, strlen(command)+1);
+         printf("send 0(inactive command)\n");
+
+         prev = 1;
+         usleep(1000000);
+         /*************************************************/
       }
-      close(clnt_sock);
-      clnt_sock = -1;
-      button_switch = 0;
-      printf("#######################################\n");
+
    }
 
-   printf("=========== server end ===========\n");
-   close(serv_sock);
+   if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20) \
+      -1 == GPIOUnexport(SPEAKER_PIN)|| -1 == GPIOUnexport(PIN27))
+            return(4);
+   close(sock[0]);
+   close(sock[1]);
 
-   return (0);
+   printf("========= finish main alcohol ========\n");
+   
+   return 0;
+}
+
+void error_handling(char *message){
+  fputs(message,stderr);
+  fputc('\n',stderr);
+  exit(1);
 }

@@ -8,12 +8,15 @@
 
 #define IN 0
 #define OUT 1
+#define LOW 0
+#define HEIGH 1
 #define MAX_MSG 30
 #define L_CHANNEL 3
 #define R_CHANNEL 4
+#define SPEAKER_PIN 27
 #define FRONT_PIN 17
 #define BACK_PIN 22
-#define WAIT_TIME 300000
+#define WAIT_TIME 100000
 
 
 int signal_from_main = 0;
@@ -45,37 +48,64 @@ void *alert_to_server(void *argv){
    serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]); // <-- 변경!!!!!!!!!
    serv_addr.sin_port = htons(atoi(((char**)argv)[3])); // <-- 변경!!!!!!!!
 
+   int noise = 0;
+   int cnt = 0;
    printf("%s : %s\n", ((char**)argv)[2], ((char**)argv)[3]);
    while(signal_from_main == 1){
-      if(L_pressure <= 0 && R_pressure <= 0 && front_weight==0 && back_weight==0){
-         printf("reach01 !!!\n");
+      if(L_pressure <= noise && R_pressure <= noise && front_weight==0 && back_weight==0){
+         printf("possible accident!\n");
          // 주행자가 킥보드를 반납할 때 센서 값들이 모두 0일 수도 있으므로
          // 킥보드를 반납하는 시간을 10초 정도로 잡아
          // 10초 후에도 킥보드가 반납이 되지 않고
          // 센서값들이 모두 0이면
          // 사고 발생으로 감지
-         sleep(10); 
+         while(signal_from_main==1 && L_pressure <= noise && R_pressure <= noise && front_weight==0 && back_weight==0){
+            // printf("F_weight: %3d\n", front_weight);
+            // printf("B_weight: %3d\n", back_weight);
+            // printf("L_pressure: %3d\n", L_pressure);
+            // printf("R_pressure: %3d\n", R_pressure);
+
+            if(cnt >= 100) // 10sec
+               break;
+            usleep(WAIT_TIME);
+            cnt++;
+         }
+         printf("cnt %d\n", cnt);
+         printf("limit %d\n", 100);
          if(signal_from_main == 0)
             break;
-         if(L_pressure <= 0 && R_pressure <= 0 && front_weight==0 && back_weight==0){
-            printf("reach02 !!!\n");
 
+         if(cnt >= 100){
             if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
                error_handling("connect() error");
             }
 
-            printf("R_pressure: %3d\n", L_pressure);
-            printf("L_pressure: %3d\n", R_pressure);
-            printf("Fron weight: %3d\n", FRONT_PIN, front_weight);
-            printf("Back weight: %3d\n", BACK_PIN, back_weight);
-
             printf("** send \'accident\' msg to server **\n");
             write(sock, "accident", sizeof("accident"));
             close(sock);
+
+            int i=1;
+            while(signal_from_main){ // 사이렌
+               GPIOWrite(SPEAKER_PIN, i);
+               if(i == 1){
+                  i = 0;
+                  usleep(100000);
+               }
+               else{
+                  i = 1;
+                  usleep(50000);
+               }
+            }
+            GPIOWrite(SPEAKER_PIN, LOW); // 마지막으로 speaker 끔
+
             break;
+         }
+         else{
+            printf("not accident!\n");
          }
       }
    }
+   
    printf("----- finish alert thread -----\n");
    pthread_exit(NULL);
 }
@@ -88,11 +118,11 @@ void *pressure_sensor_worker(void *param){
    while(signal_from_main == 1){
       if((long)param == L_CHANNEL){
          L_pressure = readadc(fd, (long)L_CHANNEL);
-         // printf("%d -> pressure: %3d\n", L_CHANNEL, L_pressure);
+         // printf("%d -> L_pressure: %3d\n", L_CHANNEL, L_pressure);
       }
       else{
          R_pressure = readadc(fd, (long)R_CHANNEL);
-         // printf("%d -> pressure: %3d\n", R_CHANNEL, R_pressure);
+         // printf("%d -> R_pressure: %3d\n", R_CHANNEL, R_pressure);
       }
       usleep(WAIT_TIME);
    }
@@ -111,11 +141,11 @@ void *weight_sensor_worker(void *param){
    while(signal_from_main == 1){
       if((long)param == FRONT_PIN){
          front_weight = GPIORead(FRONT_PIN);
-         // printf("%d -> weight: %3d\n", FRONT_PIN, front_weight);
+         // printf("%d -> F_weight: %3d\n", FRONT_PIN, front_weight);
       }
       else{
          back_weight = GPIORead(BACK_PIN);
-         // printf("%d -> weight: %3d\n", BACK_PIN, back_weight);
+         // printf("%d -> B_weight: %3d\n", BACK_PIN, back_weight);
       }
       usleep(WAIT_TIME);
    }
@@ -132,7 +162,7 @@ void *vibration_sensor_worker(){
 }
 
 
-// ./(file) <port> <Server ip> <Server port>
+// ./(file name) <port to open> <Server ip> <Server port>
 int main(int argc, char *argv[])
 {
    printf("===== automatic report start =====\n");
@@ -158,6 +188,8 @@ int main(int argc, char *argv[])
    GPIOExport(BACK_PIN);
    GPIODirection(FRONT_PIN, IN);
    GPIODirection(BACK_PIN, IN);
+   GPIOExport(SPEAKER_PIN);
+   GPIODirection(SPEAKER_PIN, OUT);
 
    int str_len = -1;
    while(1)
@@ -176,7 +208,11 @@ int main(int argc, char *argv[])
          printf("** inactive **\n");
          signal_from_main = 0;
          continue;
-         // close(clnt_sock);
+      }
+      else if (!strcmp(msg, "e")){
+         printf("## exit ##\n");
+         signal_from_main = 0;
+         break;;
       }
       
 
@@ -188,6 +224,7 @@ int main(int argc, char *argv[])
       if(prepare(fd) == -1){
          break;
       }
+   
 
       pthread_create(&alert, NULL, alert_to_server, (void*)argv);
       pthread_create(&L_pressure_sensor, NULL, pressure_sensor_worker, (void*)L_CHANNEL);
@@ -199,7 +236,9 @@ int main(int argc, char *argv[])
 
    GPIOUnexport(FRONT_PIN);
    GPIOUnexport(BACK_PIN);
+   GPIOUnexport(SPEAKER_PIN);
+   close(serv_sock);
    close(clnt_sock);
-   printf("===== finish automatic report =====\n");
+   printf("======= finish automatic report =======\n");
    return 0;
 }

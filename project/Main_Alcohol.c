@@ -10,6 +10,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <pthread.h>
 #include "header/gpioRW.h"
 // #include <sys/wait.h>
 
@@ -23,22 +24,31 @@
 #define PIN20 20
 #define PIN27 27 //알코올 
 
-void error_handling(char *message);
-// void clientConnecting(int *sock, struct sockaddr_in *dest_addr, char *args[]){
-//    *sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
-//    if(*sock == -1) error_handling("socket() error");
-//    memset(dest_addr, 0, sizeof(*dest_addr));
-//    dest_addr->sin_family = AF_INET; //IPv4
-//    dest_addr->sin_addr.s_addr = inet_addr(args[0]); // The inet_addr(const char *cp) function shall convert the string pointed to by cp, in the standard IPv4 dotted decimal notation, to an integer value suitable for use as an Internet address.
-//    dest_addr->sin_port = htons(atoi(args[1])); //argv[2] = port number // htonl, htons : host byte order을 따르는 데이터를 network byte order로 변경한다.
+int exit_signal = 1;
 
-//    if(connect(*sock, (struct sockaddr*)dest_addr, sizeof(*dest_addr)) == -1)
-//       error_handling("connect() error");
-//    printf("** complete connecting with %s **\n", args[0]);
-// }
+int sock[2];
+struct sockaddr_in slave_addr[2];
+char command[2];
+
+void error_handling(char *message);
+void *exit_worker(){
+   char str_exit[2];
+   while(1){
+      scanf("%s", str_exit);
+      if(!strcmp(str_exit, "e")){
+         break;
+      }
+   }
+   write(sock[0], str_exit, strlen(str_exit)+1);
+   write(sock[1], str_exit, strlen(str_exit)+1);
+   printf("send e(exit command) to two slaves\n");
+   exit_signal = 0;
+}
 
 // ./Main_Alcohol <slaves IP> <slave1 port> <slave2 port>
 int main(int argc, char*argv[]){
+   printf("========== main alcohol start ==========\n");
+   
    /************** 버튼 활성화 ***************/
    int state = 1;
    int light = 0;
@@ -62,11 +72,6 @@ int main(int argc, char*argv[]){
    /*************************************************/
 
    /******************** 모듈간 통신 활성화 ***********************/
-   #define MAX_MSG 2
-   int sock[2];
-   struct sockaddr_in slave_addr[2];
-   char command[MAX_MSG];
-
    sock[0] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
    if(sock[0] == -1) error_handling("socket() error");
    memset(&slave_addr[0], 0, sizeof(slave_addr[0]));
@@ -88,20 +93,24 @@ int main(int argc, char*argv[]){
    printf("** complete connecting with two slaves **\n");
    /***********************************************************/
 
+   pthread_t exit_thd;
+   pthread_create(&exit_thd, NULL, exit_worker, NULL);
 
-   // char exit[5];
-   while(1)
+   while(exit_signal)
    {
       printf("#################################\n");
       /********** 알코올 감지센서 알고리즘 ***********/
       printf("button wait for Alcohol Check...\n");
-      while(1){
+      while(exit_signal){
          value = GPIORead(PIN20);
          if(value == 0 && prev == 1) // press
             break;
          prev = value;
          usleep(10000);
       }
+
+      if(exit_signal == 0) // 종료
+         break;
 
       //스피커 울리기
       GPIOWrite(PIN16, HIGH);
@@ -113,15 +122,18 @@ int main(int argc, char*argv[]){
       printf("alcohol checking...\n");
       while(cnt < 5) { // 5초
          if( (value = GPIORead(PIN27)) == 0){
-            state = 1; //detected!!
+            state = 1; //alcohol detected!!
             break;
          }
          cnt++;
          sleep(1);
       }
 
+      if(exit_signal == 0) // 종료
+         break;
+
       if(state){
-         // 5초간 스피커 울림
+      /****** alcoholdl detect되어 5초간 스피커 울림 ******/
          printf("**** Alcohol is detected!!! ****\n");
 
          int repeat = 10; // 반복 횟수
@@ -137,26 +149,30 @@ int main(int argc, char*argv[]){
          printf("** Alcohol is not detected **\n");
          printf("button(active) wait...\n");
          cnt = 0;
-         while (1)
+         while (exit_signal)
          {
-            if(cnt >= 1000){ // 10초 지나면
+            if(cnt >= 10000){ // 10초 지나면
                break;
             }
             value = GPIORead(PIN20);
             if(value == 0 && prev == 1) // press 할때
                break;
             prev = value;
-            usleep(10000);
+            usleep(1000);
             cnt++;
          }
-         if(cnt >= 1000){ // 10초 지나면
+         
+         if(exit_signal == 0) // 종료
+            break;
+
+         if(cnt >= 10000){ // 10초 동안 press하지 않으면 다시 alcohol감사
             printf("** timeout!! **\n");
             continue;
          }
 
          strcpy(command, "1"); // 1 is "active"
-         write(sock[0], command, sizeof(command));
-         write(sock[1], command, sizeof(command));
+         write(sock[0], command, strlen(command)+1);
+         write(sock[1], command, strlen(command)+1);
          printf("send 1(active command)\n");
          usleep(1000000);
          /*************************************************/
@@ -164,7 +180,7 @@ int main(int argc, char*argv[]){
 
          /******* 버튼을 한번 더 누르면 나머지 두 모듈에게 0(inactive)명령어 전달 <킥보드를 반납하는 행위> *******/
          printf("button(inactive) wait...\n");
-         while (1)
+         while (exit_signal)
          {
             value = GPIORead(PIN20);
             if(value == 0 && prev == 1) // press 할때
@@ -173,15 +189,19 @@ int main(int argc, char*argv[]){
             usleep(10000);
          }
 
+         if(exit_signal == 0) // 종료
+            break;
+
          strcpy(command, "0"); // 0 is "inactive"
-         write(sock[0], command, sizeof(command));
-         write(sock[1], command, sizeof(command));
+         write(sock[0], command, strlen(command)+1);
+         write(sock[1], command, strlen(command)+1);
          printf("send 0(inactive command)\n");
 
          prev = 1;
          usleep(1000000);
          /*************************************************/
       }
+
    }
 
    if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20) \
@@ -190,7 +210,7 @@ int main(int argc, char*argv[]){
    close(sock[0]);
    close(sock[1]);
 
-   printf("=========== finish ===========\n");
+   printf("========= finish main alcohol ========\n");
    
    return 0;
 }

@@ -44,8 +44,6 @@ void *alert_to_server(void *argv){
             error_handling("connect() error");
          }
 
-         printf("front value : %d\n", front_value);
-         printf("back value : %d\n", back_value);
          printf("2인이상 탑승중!");
 
          printf("** send \'two\' msg to server **\n");
@@ -61,9 +59,6 @@ void *alert_to_server(void *argv){
 
 void *speaker_warning(){
    printf("----- speaker thread start -----\n");
-
-   GPIOExport(SPEAKER_PIN);
-   GPIODirection(SPEAKER_PIN, OUT);
 
    int i=1;
    while(signal_from_main){
@@ -83,7 +78,6 @@ void *speaker_warning(){
    }
 
    GPIOWrite(SPEAKER_PIN, LOW);
-   GPIOUnexport(SPEAKER_PIN);
 
    printf("----- finish speaker thread -----\n");
    pthread_exit(NULL);
@@ -96,11 +90,11 @@ void *weight_sensor_worker(void *param){
    while(signal_from_main == 1){
       if((long)param == FRONT_PIN){
          front_value = GPIORead(FRONT_PIN);   // 앞쪽 무게센서가 감지되면, front_value == 1
-         // printf("Front weight sensor Detected!\n");
+         // printf("front value : %d\n", front_value);
       }
       if((long)param == BACK_PIN){
          back_value = GPIORead(BACK_PIN);    // 뒨쪽 무게센서가 감지되면, front_value == 1
-         // printf("Back weight sensor Detected!\n");
+         // printf("back value : %d\n", back_value);
       }
 
       // while(front_value && back_value){
@@ -117,7 +111,7 @@ void *weight_sensor_worker(void *param){
    pthread_exit(NULL);
 }
 
-// ./More_Than_Two_Warning01 <port> <Server ip> <Server port>
+// ./(file name) <port to open> <Server ip> <Server port>
 int main(int argc, char *argv[])
 {
    printf("===== more than two warning start =====\n");
@@ -139,9 +133,11 @@ int main(int argc, char *argv[])
     * 생겨 thread 내에 작성하지 않음
     **/
    GPIOExport(FRONT_PIN);
-   GPIOExport(BACK_PIN);
    GPIODirection(FRONT_PIN, IN);
+   GPIOExport(BACK_PIN);
    GPIODirection(BACK_PIN, IN);
+   GPIOExport(SPEAKER_PIN);
+   GPIODirection(SPEAKER_PIN, OUT);
 
    int str_len = -1;
    while(1)
@@ -161,6 +157,11 @@ int main(int argc, char *argv[])
          signal_from_main = 0;
          continue;
       }
+      else if (!strcmp(msg, "e")){
+         printf("## exit ##\n");
+         signal_from_main = 0;
+         break;
+      }
       
       pthread_create(&alert, NULL, alert_to_server, (void*)argv);
       pthread_create(&front_weight_sensor, NULL, weight_sensor_worker, (void*)FRONT_PIN);
@@ -171,7 +172,9 @@ int main(int argc, char *argv[])
 
    GPIOUnexport(FRONT_PIN);
    GPIOUnexport(BACK_PIN);
+   GPIOUnexport(SPEAKER_PIN);
+   close(serv_sock);
    close(clnt_sock);
-   printf("===== finish more than two warning ==\n");
+   printf("======= finish more than two warning =======\n");
    return 0;
 }

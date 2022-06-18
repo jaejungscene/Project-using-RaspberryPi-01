@@ -11,7 +11,7 @@
 #define OUT 1
 #define LOW 0
 #define HIGH 1
-#define PIN 27
+#define PIN 26
 
 int main(int argc, char* argv[]) {
    GPIOExport(PIN);

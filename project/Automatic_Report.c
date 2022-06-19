@@ -5,11 +5,11 @@
 #include "header/mySocket.h"
 #include "header/gpioRW.h"
 
-
 #define IN 0
 #define OUT 1
 #define LOW 0
 #define HEIGH 1
+
 #define MAX_MSG 30
 #define L_CHANNEL 3
 #define R_CHANNEL 4
@@ -18,9 +18,8 @@
 #define BACK_PIN 22
 #define WAIT_TIME 100000
 
-
 int signal_from_main = 0;
-int fd; //adc fd
+int fd; // adc fd
 int L_pressure; // value of left pressure sensor
 int R_pressure; // value of right pressur esensor
 int front_weight; // value of left pressure sensor
@@ -54,24 +53,20 @@ void *alert_to_server(void *argv){
    while(signal_from_main == 1){
       if(L_pressure <= noise && R_pressure <= noise && front_weight==0 && back_weight==0){
          printf("possible accident!\n");
-         // 주행자가 킥보드를 반납할 때 센서 값들이 모두 0일 수도 있으므로
-         // 킥보드를 반납하는 시간을 10초 정도로 잡아
-         // 10초 후에도 킥보드가 반납이 되지 않고
-         // 센서값들이 모두 0이면
-         // 사고 발생으로 감지
+         /**
+          * 주행자가 킥보드를 반납할 때 센서 값들이 모두 0일 수도 있으므로
+          * 킥보드를 반납하는 시간을 10초 정도로 잡아
+          * 10초 후에도 킥보드가 반납이 되지 않고
+          * 센서값들이 모두 0이면
+          * 사고 발생으로 감지
+          **/
          while(signal_from_main==1 && L_pressure <= noise && R_pressure <= noise && front_weight==0 && back_weight==0){
-            // printf("F_weight: %3d\n", front_weight);
-            // printf("B_weight: %3d\n", back_weight);
-            // printf("L_pressure: %3d\n", L_pressure);
-            // printf("R_pressure: %3d\n", R_pressure);
-
-            if(cnt >= 100) // 10sec
+            if(cnt >= 100) // 10 sec
                break;
-            usleep(WAIT_TIME);
+            usleep(WAIT_TIME); // 0.1 sec
             cnt++;
          }
-         printf("cnt %d\n", cnt);
-         printf("limit %d\n", 100);
+
          if(signal_from_main == 0)
             break;
 
@@ -109,7 +104,6 @@ void *alert_to_server(void *argv){
    printf("----- finish alert thread -----\n");
    pthread_exit(NULL);
 }
-
 
 
 void *pressure_sensor_worker(void *param){
@@ -169,7 +163,7 @@ int main(int argc, char *argv[])
    pthread_t alert, L_pressure_sensor, R_pressure_sensor,
                front_weight_sensor, back_weight_sensor;
 
-   int serv_sock, clnt_sock = -1; // socket filedescriptor
+   int serv_sock, clnt_sock = -1;
    struct sockaddr_in serv_addr, clnt_addr;
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    char msg[MAX_MSG];
@@ -179,11 +173,6 @@ int main(int argc, char *argv[])
    if (clnt_sock == -1) error_handling("accept() error");
    printf("** complete connection with %s **\n", inet_ntoa(clnt_addr.sin_addr));
 
-   /**
-    * Automatic_Report와 겹치는 센서이다보니
-    * GPIO Unexport와 Export가 겹치는 상황이
-    * 생겨 thread 내에 작성하지 않음
-    **/
    GPIOExport(FRONT_PIN);
    GPIOExport(BACK_PIN);
    GPIODirection(FRONT_PIN, IN);
@@ -214,7 +203,6 @@ int main(int argc, char *argv[])
          signal_from_main = 0;
          break;;
       }
-      
 
       fd = open(DEVICE, O_RDWR); // opening the DEVICE file as read/write
       if (fd <= 0) {
@@ -225,13 +213,12 @@ int main(int argc, char *argv[])
          break;
       }
    
-
       pthread_create(&alert, NULL, alert_to_server, (void*)argv);
       pthread_create(&L_pressure_sensor, NULL, pressure_sensor_worker, (void*)L_CHANNEL);
       pthread_create(&R_pressure_sensor, NULL, pressure_sensor_worker, (void*)R_CHANNEL);
       pthread_create(&front_weight_sensor, NULL, weight_sensor_worker, (void*)FRONT_PIN);
       pthread_create(&back_weight_sensor, NULL, weight_sensor_worker, (void*)BACK_PIN);
-      usleep(1000000); // console 출력들을 보기 좋게 하기 위해
+      usleep(1000000);
    }
 
    GPIOUnexport(FRONT_PIN);

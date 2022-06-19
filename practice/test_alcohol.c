@@ -41,7 +41,7 @@
 #define OUT 1
 #define LOW 0
 #define HIGH 1
-#define SPEAKER_PIN 27
+#define SPEAKER_PIN 26
 
 #define TIME 300
 
@@ -58,6 +58,7 @@ void work(int pwmnum, int channel)
     if(value >= 1000){
         printf("detected!\n");
         GPIOWrite(SPEAKER_PIN, OUT);
+        usleep(500000);
     }
     GPIOWrite(SPEAKER_PIN, IN);
     printf("%d -> %3d) value: %3d\n", channel, i, value);

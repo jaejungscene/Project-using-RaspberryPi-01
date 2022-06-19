@@ -12,17 +12,17 @@
 #include <sys/socket.h>
 #include <pthread.h>
 #include "header/gpioRW.h"
-// #include <sys/wait.h>
-
+#include "header/spiRW.h"
 
 #define IN 0
 #define OUT 1
 #define LOW 0
 #define HIGH 1
-#define PIN16 16 //스피커
+
+#define SPEAKER_PIN 16 //스피커
 #define PIN21 21
 #define PIN20 20
-#define PIN27 27 //알코올 
+#define ALCOHOL_CHANNEL 2 //알코올 
 
 int exit_signal = 1;
 
@@ -31,6 +31,7 @@ struct sockaddr_in slave_addr[2];
 char command[2];
 
 void error_handling(char *message);
+
 void *exit_worker(){
    char str_exit[2];
    while(1){
@@ -52,27 +53,33 @@ int main(int argc, char*argv[]){
    /************** 버튼 활성화 ***************/
    int state = 1;
    int light = 0;
-   int prev = 1; //button을 press하고 땔 때
+   int prev = 1;
    int value;  
 
    if (-1 == GPIOExport(PIN21) || -1 == GPIOExport(PIN20))
       return(1);
    if (-1 == GPIODirection(PIN21, OUT) || -1 == GPIODirection(PIN20, IN))
       return(2);
-   if ( -1 == GPIOWrite (PIN21, 1)) // 처음 pin 21에 1을 write하면 이 값은 계속 유지된다.
+   if ( -1 == GPIOWrite (PIN21, 1))
       return(3);
 
    /************** 스피커 활성화 ***************/
-   GPIOExport(PIN16);
-   GPIODirection(PIN16, OUT);
+   GPIOExport(SPEAKER_PIN);
+   GPIODirection(SPEAKER_PIN, OUT);
 
-   /************** 알코올센서 활성화 ***************/
-   GPIOExport(PIN27);
-   GPIODirection(PIN27, IN);
-   /*************************************************/
+   /***** 알코올 값을 읽어들이기 위해 adc 준비 *****/
+   int adc_fd;
+   adc_fd = open(DEVICE, O_RDWR);
+   if (adc_fd <= 0) {
+      printf( "Device %s not found\n", DEVICE);
+      return (-1);
+   }
+   if(prepare(adc_fd) == -1){
+    return -1;
+   }
 
    /******************** 모듈간 통신 활성화 ***********************/
-   sock[0] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   sock[0] = socket(PF_INET, SOCK_STREAM, 0);
    if(sock[0] == -1) error_handling("socket() error");
    memset(&slave_addr[0], 0, sizeof(slave_addr[0]));
    slave_addr[0].sin_family = AF_INET; //IPv4
@@ -81,7 +88,7 @@ int main(int argc, char*argv[]){
    if(connect(sock[0], (struct sockaddr*)&slave_addr[0], sizeof(slave_addr[0])) == -1)
       error_handling("connect() error");
 
-   sock[1] = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   sock[1] = socket(PF_INET, SOCK_STREAM, 0);
    if(sock[1] == -1) error_handling("socket() error");
    memset(&slave_addr[1], 0, sizeof(slave_addr[1]));
    slave_addr[1].sin_family = AF_INET; //IPv4
@@ -112,21 +119,26 @@ int main(int argc, char*argv[]){
       if(exit_signal == 0) // 종료
          break;
 
-      //스피커 울리기
-      GPIOWrite(PIN16, HIGH);
+      //1초간 스피커 울림(이산화탄소감지 & 알코올감지 시작)
+      GPIOWrite(SPEAKER_PIN, HIGH);
       sleep(1);
-      GPIOWrite(PIN16, LOW);
+      GPIOWrite(SPEAKER_PIN, LOW);
 
+      /**
+       * 일반적일 때 : 500대
+       * 알코올이 조금 감지 될 때 : 700대
+       * 알코올이 많이 감지 될 때 : 900대
+       **/
       int cnt = 0;
       int state = 0;
       printf("alcohol checking...\n");
-      while(cnt < 5) { // 5초
-         if( (value = GPIORead(PIN27)) == 0){
+      while(cnt < 50) { // 약 5초 동안 검사
+         if( (value = readadc(adc_fd, ALCOHOL_CHANNEL)) >= 700){
             state = 1; //alcohol detected!!
             break;
          }
          cnt++;
-         sleep(1);
+         usleep(100000); //0.1초
       }
 
       if(exit_signal == 0) // 종료
@@ -136,13 +148,13 @@ int main(int argc, char*argv[]){
       /****** alcoholdl detect되어 5초간 스피커 울림 ******/
          printf("**** Alcohol is detected!!! ****\n");
 
-         int repeat = 10; // 반복 횟수
+         int repeat = 20; // 반복 횟수
          int period = 300000; // 반복 term
          for(int i=0; i<repeat; i++){
-            GPIOWrite(PIN16, i%2);
+            GPIOWrite(SPEAKER_PIN, i%2);
             usleep(period);
          }
-         GPIOWrite(PIN16, LOW);
+         GPIOWrite(SPEAKER_PIN, LOW);
       }
       else{
       /******* 버튼을 누르면 나머지 두 모듈에게 1(active)명령어 전달 <QR코드를 찍는 행위> *******/
@@ -165,7 +177,7 @@ int main(int argc, char*argv[]){
          if(exit_signal == 0) // 종료
             break;
 
-         if(cnt >= 10000){ // 10초 동안 press하지 않으면 다시 alcohol감사
+         if(cnt >= 10000){ // 10초 동안 press하지 않으면 다시 alcohol검사
             printf("** timeout!! **\n");
             continue;
          }
@@ -201,11 +213,10 @@ int main(int argc, char*argv[]){
          usleep(1000000);
          /*************************************************/
       }
-
    }
 
    if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20) \
-      -1 == GPIOUnexport(PIN16)|| -1 == GPIOUnexport(PIN27))
+      -1 == GPIOUnexport(SPEAKER_PIN)|| -1 == GPIOUnexport(ALCOHOL_CHANNEL))
             return(4);
    close(sock[0]);
    close(sock[1]);

@@ -5,15 +5,16 @@
 #include "header/mySocket.h"
 #include "header/gpioRW.h"
 
+#define IN 0
+#define OUT 1
+#define LOW 0
+#define HIGH 1
+
 #define MAX_MSG 30
 #define FRONT_PIN 17
 #define BACK_PIN 22
 #define SPEAKER_PIN 27
 #define WAIT_TIME 300000
-#define IN 0
-#define OUT 1
-#define LOW 0
-
 
 int signal_from_main = 0;
 int fd; //adc fd
@@ -33,9 +34,9 @@ void *alert_to_server(void *argv){
       error_handling("socket() error");
    }
    memset(&serv_addr, 0, sizeof(serv_addr));
-   serv_addr.sin_family = AF_INET; //IPv4
-   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]); // <-- 변경!!!!!!!!!
-   serv_addr.sin_port = htons(atoi(((char**)argv)[3])); // <-- 변경!!!!!!!!
+   serv_addr.sin_family = AF_INET;
+   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]);
+   serv_addr.sin_port = htons(atoi(((char**)argv)[3]));
 
    printf("%s : %s\n", ((char**)argv)[2], ((char**)argv)[3]);
    while(signal_from_main == 1){
@@ -44,8 +45,7 @@ void *alert_to_server(void *argv){
             error_handling("connect() error");
          }
 
-         printf("2인이상 탑승중!");
-
+         printf("2인이상 탑승중!\n");
          printf("** send \'two\' msg to server **\n");
          write(sock, "two", sizeof("two"));
          close(sock);
@@ -76,7 +76,6 @@ void *speaker_warning(){
       else
          GPIOWrite(SPEAKER_PIN, LOW);
    }
-
    GPIOWrite(SPEAKER_PIN, LOW);
 
    printf("----- finish speaker thread -----\n");
@@ -85,7 +84,6 @@ void *speaker_warning(){
 
 void *weight_sensor_worker(void *param){
    printf("----- weight thread start -----\n");
-
 
    while(signal_from_main == 1){
       if((long)param == FRONT_PIN){
@@ -96,14 +94,6 @@ void *weight_sensor_worker(void *param){
          back_value = GPIORead(BACK_PIN);    // 뒨쪽 무게센서가 감지되면, front_value == 1
          // printf("back value : %d\n", back_value);
       }
-
-      // while(front_value && back_value){
-      //    speaker_flag = 1;  //스피커 출력
-      //    if((GPIORead(FRONT_PIN) + GPIORead(BACK_PIN)) < 2){  // 다시 1인 이하탑승일시 경고음 중지
-      //       speaker_flag = 0; // 스피커 중지
-      //    }
-      //    usleep(WAIT_TIME);
-      // }
       usleep(WAIT_TIME);
    }
 
@@ -127,11 +117,6 @@ int main(int argc, char *argv[])
    if (clnt_sock == -1) error_handling("accept() error");
    printf("** complete connection with %s **\n", inet_ntoa(clnt_addr.sin_addr));
 
-   /**
-    * Automatic_Report와 겹치는 센서이다보니
-    * GPIO Unexport와 Export가 겹치는 상황이
-    * 생겨 thread 내에 작성하지 않음
-    **/
    GPIOExport(FRONT_PIN);
    GPIODirection(FRONT_PIN, IN);
    GPIOExport(BACK_PIN);
@@ -167,7 +152,7 @@ int main(int argc, char *argv[])
       pthread_create(&front_weight_sensor, NULL, weight_sensor_worker, (void*)FRONT_PIN);
       pthread_create(&back_weight_sensor, NULL, weight_sensor_worker, (void*)BACK_PIN);
       pthread_create(&speaker, NULL, speaker_warning, NULL);
-      usleep(1000000); // console 출력들을 보기 좋게 하기 위해
+      usleep(1000000);
    }
 
    GPIOUnexport(FRONT_PIN);

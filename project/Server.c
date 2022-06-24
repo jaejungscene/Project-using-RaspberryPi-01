@@ -40,7 +40,6 @@ void *siren_thd(){
          GPIOWrite(SPEAKER_PIN, flag);
       }
       usleep(term);
-      // printf("button_switch %d\n", button_switch);
    }
    GPIOWrite(SPEAKER_PIN, LOW);
    GPIOUnexport(SPEAKER_PIN);
@@ -59,7 +58,6 @@ void *button_thd(){
    while(1)
    {
       value = GPIORead(PIN20);
-      // printf ("value : %d, prev : %d\n", value, prev);
       if(prev == 1 && value == 0){ //button press
          printf ("button press - 신고 확인 !\n", value, prev);
          if(button_switch == 0){
@@ -80,7 +78,7 @@ void *button_thd(){
 #define MAX_STR 100
 int main(int argc, char *argv[])
 {
-   int serv_sock, clnt_sock = -1; // socket filedescriptor
+   int serv_sock, clnt_sock = -1;
    struct sockaddr_in serv_addr, clnt_addr;
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    char msg[MAX_STR];
@@ -134,7 +132,7 @@ int main(int argc, char *argv[])
             }
          }
       }
-      close(clnt_sock); // 신호를 한번 받고 연결은 끊음
+      close(clnt_sock); // 신호를 한번 받고 연결 끊음
       clnt_sock = -1;
       button_switch = 0;
       printf("#######################################\n");

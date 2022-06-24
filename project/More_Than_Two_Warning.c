@@ -91,7 +91,7 @@ void *weight_sensor_worker(void *param){
          // printf("front value : %d\n", front_value);
       }
       if((long)param == BACK_PIN){
-         back_value = GPIORead(BACK_PIN);    // 뒨쪽 무게센서가 감지되면, front_value == 1
+         back_value = GPIORead(BACK_PIN);    // 뒨쪽 무게센서가 감지되면, back_value == 1
          // printf("back value : %d\n", back_value);
       }
       usleep(WAIT_TIME);

@@ -40,12 +40,12 @@ void *alert_to_server(void *argv){
    struct sockaddr_in serv_addr;
    int str_len;
 
-   sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP // SOCK_DGRAM = UDP
+   sock = socket(PF_INET, SOCK_STREAM, 0); // PF_INET = IPv4, SOCK_STREAM = TCP, SOCK_DGRAM = UDP
    if(sock == -1) error_handling("socket() error");
    memset(&serv_addr, 0, sizeof(serv_addr));
    serv_addr.sin_family = AF_INET; //IPv4
-   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]); // <-- 변경!!!!!!!!!
-   serv_addr.sin_port = htons(atoi(((char**)argv)[3])); // <-- 변경!!!!!!!!
+   serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]);
+   serv_addr.sin_port = htons(atoi(((char**)argv)[3]));
 
    int noise = 0;
    int cnt = 0;
@@ -112,11 +112,11 @@ void *pressure_sensor_worker(void *param){
    while(signal_from_main == 1){
       if((long)param == L_CHANNEL){
          L_pressure = readadc(fd, (long)L_CHANNEL);
-         // printf("%d -> L_pressure: %3d\n", L_CHANNEL, L_pressure);
+         // printf("%d -> L_pressure: %3d\n", L_CHANNEL, L_pressure); // <--- test
       }
       else{
          R_pressure = readadc(fd, (long)R_CHANNEL);
-         // printf("%d -> R_pressure: %3d\n", R_CHANNEL, R_pressure);
+         // printf("%d -> R_pressure: %3d\n", R_CHANNEL, R_pressure); // <--- test
       }
       usleep(WAIT_TIME);
    }
@@ -135,11 +135,11 @@ void *weight_sensor_worker(void *param){
    while(signal_from_main == 1){
       if((long)param == FRONT_PIN){
          front_weight = GPIORead(FRONT_PIN);
-         // printf("%d -> F_weight: %3d\n", FRONT_PIN, front_weight);
+         // printf("%d -> F_weight: %3d\n", FRONT_PIN, front_weight); // <--- test
       }
       else{
          back_weight = GPIORead(BACK_PIN);
-         // printf("%d -> B_weight: %3d\n", BACK_PIN, back_weight);
+         // printf("%d -> B_weight: %3d\n", BACK_PIN, back_weight); // <--- test
       }
       usleep(WAIT_TIME);
    }
@@ -168,6 +168,7 @@ int main(int argc, char *argv[])
    socklen_t clnt_addr_size = sizeof(clnt_addr);
    char msg[MAX_MSG];
 
+   /**** Main_Alcohol에게 signal을 받기 위해 socket 통신 ****/
    serverPrepare(&serv_sock, &serv_addr, &argv[1]);
    clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_addr, &clnt_addr_size);
    if (clnt_sock == -1) error_handling("accept() error");
@@ -204,7 +205,7 @@ int main(int argc, char *argv[])
          break;;
       }
 
-      fd = open(DEVICE, O_RDWR); // opening the DEVICE file as read/write
+      fd = open(DEVICE, O_RDWR);
       if (fd <= 0) {
          printf( "Device %s not found\n", DEVICE);
          break;

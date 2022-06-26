@@ -216,7 +216,7 @@ int main(int argc, char*argv[]){
    }
 
    if (-1 == GPIOUnexport(PIN21) || -1 == GPIOUnexport(PIN20) \
-      -1 == GPIOUnexport(SPEAKER_PIN)|| -1 == GPIOUnexport(ALCOHOL_CHANNEL))
+         || -1 == GPIOUnexport(SPEAKER_PIN)|| -1 == GPIOUnexport(ALCOHOL_CHANNEL))
             return(4);
    close(sock[0]);
    close(sock[1]);

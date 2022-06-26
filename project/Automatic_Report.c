@@ -47,7 +47,7 @@ void *alert_to_server(void *argv){
    serv_addr.sin_addr.s_addr = inet_addr(((char**)argv)[2]);
    serv_addr.sin_port = htons(atoi(((char**)argv)[3]));
 
-   int noise = 0;
+   int noise = 5;
    int cnt = 0;
    printf("%s : %s\n", ((char**)argv)[2], ((char**)argv)[3]);
    while(signal_from_main == 1){
@@ -60,6 +60,7 @@ void *alert_to_server(void *argv){
           * 센서값들이 모두 0이면
           * 사고 발생으로 감지
           **/
+         cnt = 0;
          while(signal_from_main==1 && L_pressure <= noise && R_pressure <= noise && front_weight==0 && back_weight==0){
             if(cnt >= 100) // 10 sec
                break;
@@ -202,7 +203,7 @@ int main(int argc, char *argv[])
       else if (!strcmp(msg, "e")){
          printf("## exit ##\n");
          signal_from_main = 0;
-         break;;
+         break;
       }
 
       fd = open(DEVICE, O_RDWR);

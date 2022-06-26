@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
          else if(!strcmp(msg, "two")){
             /*** 2인 이상 신고 감지 신호 수신시 ***/
             if((fd = open("./log.txt", O_WRONLY)) == -1){
-               error_handling("open() error in emergency_log");
+               error_handling("open() error in two warning");
             }
             else{
                time(&t);

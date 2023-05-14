@@ -1,4 +1,4 @@
-I use "***Raspberry Pi 3 model B+***", so this model is recommended.
+"***Raspberry Pi 3 model B+***" is used.
 
 <br>
 

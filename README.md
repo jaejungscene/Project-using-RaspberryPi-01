@@ -12,8 +12,6 @@
 ## Purpose of Project
 With the introduction of public electric kick scooters, there has been a rise in traffic accidents involving personal mobility devices, including electric kick scooters. Various factors, such as speeding and alcohol consumption, contribute to these accidents caused by public electric kick scooters. But the companies providing public electric kick scooters had only implemented a feature to detect and prevent speeding. To address this issue, the aim of the project is to develop additional features that detect not only speeding but also *instances of two-person riding* and *alcohol consumption*, thereby suggesting restrictions on such behaviors. Furthermore, this system is implemented to *automatically send accident signals to emergency services (112 or 119) in the event of a major accident*.
 
-
-
 ## Overview of Implemented System
 <p align="center">
   - Overall System Abstraction -
@@ -29,5 +27,22 @@ There are three main functions to be implemented:
 Based on above the three functions and the overall system abstraction, the complete logic is succinctly illustrated in the figure below.
 <p align="center">
   <img width=80% height=80% alt="Screenshot 2023-05-14 at 4 39 24 PM" src="https://github.com/jaejungscene/Project-using-RaspberryPi-01/assets/88542073/6743fb90-f200-43ed-bfc7-2403c327f54e">
-
 </p>
+
+## Demo
+
+<!-- <p vertical-align="center">
+  <img width=10% height=10% src="https://github.com/jaejungscene/Project-using-RaspberryPi-01/assets/88542073/d997e001-e249-49f7-8f46-e365e8fa9b24"> 
+  <a href="https://jaejung.notion.site/Demo-Public-Elextric-Kickboard-Safety-System-ba00752c16cc454b810119bacc86353b">Demo video link</a>
+</p> -->
+
+<table>
+  <tr>
+    <td align="center" valign="middle">
+      <img width="100%" height="100%" src="https://github.com/jaejungscene/Project-using-RaspberryPi-01/assets/88542073/d997e001-e249-49f7-8f46-e365e8fa9b24">
+    </td>
+    <td align="center" valign="middle">
+      <a href="https://jaejung.notion.site/Demo-Public-Elextric-Kickboard-Safety-System-ba00752c16cc454b810119bacc86353b">Demo video link</a>
+    </td>
+  </tr>
+</table>
